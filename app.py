@@ -169,8 +169,11 @@ st.sidebar.title("Filter Options")
 all_dancers = sorted(df['ダンサー'].dropna().unique())
 selected_dancers = st.sidebar.multiselect("Dancer", all_dancers, key="filter_dancer")
 
-# Discipline Filter (Sorting logic applied later, here just list unique)
-all_disciplines = sorted(df['種目'].dropna().unique())
+# Discipline Filter with Custom Order (W, T, F, Q, V, Other)
+raw_disciplines = df['種目'].dropna().unique()
+discipline_order = {'W': 0, 'T': 1, 'F': 2, 'Q': 3, 'V': 4, 'Other': 5}
+all_disciplines = sorted(raw_disciplines, key=lambda x: discipline_order.get(x, 99))
+
 selected_disciplines = st.sidebar.multiselect("Dance", all_disciplines, key="filter_discipline")
 
 # Free Word Search with Suggestions (from Memo)
