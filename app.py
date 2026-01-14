@@ -17,7 +17,7 @@ else:
 # Page Configuration & CSS
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Dance Video Library / ITxDancer",
+    page_title="Dance Video Library",
     page_icon="💃",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -406,7 +406,7 @@ def clear_filters():
 # -----------------------------------------------------------------------------
 col_header, col_reset = st.columns([3, 1])
 with col_header:
-    st.title("Dance Video Library / ITxDancer")
+    st.title("Dance Video Library")
 with col_reset:
     # Use on_click callback to handle state updates before the rerun loop
     if st.button("Home / Reset", use_container_width=True, on_click=clear_filters):
@@ -572,6 +572,32 @@ st.markdown("""
        Usually the active radio has aria-checked="true" on the input.
     */
 
+    /* Button Styles (Primary -> Orange) */
+    div.stButton > button[kind="primary"] {
+        background-color: #FF8C00 !important;
+        border-color: #FF8C00 !important;
+        color: white !important;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #E67E00 !important;
+        border-color: #E67E00 !important;
+    }
+
+    /* Footer */
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #0E1117;
+        color: #888;
+        text-align: center;
+        padding: 10px;
+        font-size: 0.8rem;
+        border-top: 1px solid #333;
+        z-index: 999;
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -684,3 +710,6 @@ elif view_mode == "By Dance":
         
         render_video_grid(sub_df)
         st.markdown("---")
+
+# Footer Component
+st.markdown('<div class="footer">ITxDancer by Ken Ono</div>', unsafe_allow_html=True)
