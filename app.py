@@ -550,20 +550,11 @@ st.markdown("""
         color: #fff !important;
     }
 
-    /* Selected State (Streamlit applies data-checked or similar) 
-       This is tricky purely with CSS on the label, but Streamlit wraps specific parts.
-       We will rely on the text color change if possible, or just keep them as simple toggles.
-       
-       Actually, Streamlit's stRadio structure is:
-       div[role="radiogroup"]
-         label
-           div (circle) -> Hidden
-           div (markdown) -> Text
-       
-       The selected label usually has a checked attribute on the internal input.
-       We can target the checked state via :has() if supported, or just keep simple.
-       Let's try to style the text div specifically.
-    */
+    /* Selected State (Underline) */
+    div[data-testid="stRadio"] label:has(input:checked) {
+        border-bottom: 2px solid #FF8C00 !important;
+        color: white !important;
+    }
     
     /* Robust "Selected" styling is hard without stable classes. 
        Let's just make them look good. 
@@ -644,7 +635,16 @@ if view_mode == "By Dancer":
     df_dancer_sorted['_original_index'] = df_dancer_sorted.index
     df_dancer_sorted = df_dancer_sorted.reset_index(drop=True)
     
-    render_video_grid(df_dancer_sorted)
+    # Render Groups by Dancer
+    # We use sort=False to preserve the custom sort order we just applied
+    grouped = df_dancer_sorted.groupby('ダンサー', sort=False)
+    
+    for dancer_name, group_df in grouped:
+        st.markdown(f"### {dancer_name}")
+        # Reset index within the group for clean grid rendering (though render function handles chunks)
+        # We pass group_df directly.
+        render_video_grid(group_df)
+        st.markdown("---")
 
 elif view_mode == "By Dance":
     # Sort by rank(Discipline), then by Dancer
