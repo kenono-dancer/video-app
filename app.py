@@ -167,6 +167,14 @@ else:
 df['メモ'] = df['メモ'].fillna("").astype(str)
 df['platform'] = df['platform'].fillna("YouTube").astype(str)
 
+# DEBUG: Check Memo Data
+# with st.sidebar.expander("Debug: Data Inspector"):
+#     st.write("Columns:", df.columns.tolist())
+#     st.write("Memo Content (First 5):")
+#     st.write(df['メモ'].head(5))
+#     st.write("Raw DF Head:")
+#     st.dataframe(df.head(3))
+
 # -----------------------------------------------------------------------------
 # Sidebar & Filtering
 # -----------------------------------------------------------------------------
@@ -488,11 +496,15 @@ def render_video_grid(df_subset):
             if memo_full.lower() == "nan": 
                 memo_full = ""
             
-            # Extract only the 2nd line (Index 1) if available
-            # User request: "F列の情報はメールの本文の2行目のみにして"
+            # Extract Memo
+            # User request: "2nd line only". 
+            # Issue: User reported "Not displayed". Possibly data has only 1 line.
+            # Fix: Try 2nd line. If not available, fallback to 1st line (so something shows).
             memo_lines = memo_full.splitlines()
             if len(memo_lines) >= 2:
                 memo = memo_lines[1].strip()
+            elif len(memo_lines) == 1:
+                memo = memo_lines[0].strip()
             else:
                 memo = "" 
             
