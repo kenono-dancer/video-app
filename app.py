@@ -146,16 +146,26 @@ if missing_cols:
     st.error(f"Missing columns in the spreadsheet: {', '.join(missing_cols)}. Please check the sheet headers.")
     st.stop()
 
-# Ensure Memo column exists, fill with empty string if not
+# Ensure Memo column (Col F / Index 5) exists
 if 'メモ' not in df.columns:
-    # Try to find it by index if naming fails, F column is index 5
     if len(df.columns) >= 6:
-        # Rename the 6th column to 'メモ'
         df.rename(columns={df.columns[5]: 'メモ'}, inplace=True)
     else:
         df['メモ'] = ""
 
+# Ensure Platform/Site Name column (Col C / Index 2) exists
+# User stated Column C is Site Name.
+if len(df.columns) >= 3:
+    # Rename Col 2 to 'platform' (internal use)
+    # Check if 'platform' already exists to avoid conflict if headers match
+    col_c = df.columns[2]
+    if col_c != 'platform':
+        df.rename(columns={col_c: 'platform'}, inplace=True)
+else:
+    df['platform'] = "YouTube" # Default fallback
+
 df['メモ'] = df['メモ'].fillna("").astype(str)
+df['platform'] = df['platform'].fillna("YouTube").astype(str)
 
 # -----------------------------------------------------------------------------
 # Sidebar & Filtering
@@ -164,6 +174,11 @@ st.sidebar.markdown("---")
 # view_mode removed from here
 
 st.sidebar.title("Filter Options")
+
+# Reload Data Button (Manual Refresh)
+if st.sidebar.button("Reload Data"):
+    st.cache_data.clear()
+    st.rerun()
 
 # Dancer Filter
 all_dancers = sorted(df['ダンサー'].dropna().unique())
@@ -469,18 +484,31 @@ def render_video_grid(df_subset):
             except:
                 raw_memo = ""
                 
-            memo = str(raw_memo) if raw_memo is not None else ""
-            if memo.lower() == "nan": 
-                memo = ""
+            memo_full = str(raw_memo) if raw_memo is not None else ""
+            if memo_full.lower() == "nan": 
+                memo_full = ""
+            
+            # Extract only the 2nd line (Index 1) if available
+            # User request: "F列の情報はメールの本文の2行目のみにして"
+            memo_lines = memo_full.splitlines()
+            if len(memo_lines) >= 2:
+                memo = memo_lines[1].strip()
+            else:
+                memo = "" 
             
             # Prepare memo HTML block conditionally (Flattened HTML)
             memo_html = ""
-            if memo.strip():
+            if memo:
                 memo_html = f'<div style="font-size:0.8rem; color:#aaa; margin-bottom:4px; line-height:1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{memo}</div>'
             
+            # Get Platform Name for Badge (Column C)
+            platform_name = row.get('platform', 'YouTube')
+            if not platform_name or str(platform_name).lower() == 'nan':
+                 platform_name = 'YouTube'
+
             with col:
                 # Flattened Card HTML to prevent Markdown code block issues
-                card_html = f"""<a href="{video_url}" target="_blank" class="card-link"><div class="dance-card"><div style="width:100%; height:200px; overflow:hidden; position:relative;"><img src="{img_url}" alt="{dancer}" onerror="this.onerror=null; this.src='https://via.placeholder.com/320x180.png?text=No+Image'" style="width:100%; height:100%; object-fit:cover;"></div><div class="dance-card-content">{memo_html}<div class="dance-title">{dancer}</div><div class="dance-meta"><span>{discipline}</span><span class="badge" style="font-size:0.75rem; background:#CC0000; color=white;">YouTube</span></div></div></div></a>"""
+                card_html = f"""<a href="{video_url}" target="_blank" class="card-link"><div class="dance-card"><div style="width:100%; height:200px; overflow:hidden; position:relative;"><img src="{img_url}" alt="{dancer}" onerror="this.onerror=null; this.src='https://via.placeholder.com/320x180.png?text=No+Image'" style="width:100%; height:100%; object-fit:cover;"></div><div class="dance-card-content">{memo_html}<div class="dance-title">{dancer}</div><div class="dance-meta"><span>{discipline}</span><span class="badge" style="font-size:0.75rem; background:#CC0000; color=white;">{platform_name}</span></div></div></div></a>"""
                 
                 st.markdown(card_html, unsafe_allow_html=True)
                 
