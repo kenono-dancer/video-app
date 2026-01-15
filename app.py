@@ -183,10 +183,7 @@ st.sidebar.markdown("---")
 
 st.sidebar.title("Filter Options")
 
-# Reload Data Button (Manual Refresh)
-if st.sidebar.button("Reload Data"):
-    st.cache_data.clear()
-    st.rerun()
+
 
 # Dancer Filter
 all_dancers = sorted(df['ダンサー'].dropna().unique())
@@ -342,6 +339,12 @@ with st.sidebar.expander("➕ Add"):
 # Edit Mode Toggle
 st.sidebar.markdown("---")
 edit_mode = st.sidebar.toggle("🔧 Edit Mode", value=False)
+
+st.sidebar.markdown("---")
+# Reload Data Button (Manual Refresh) - Moved to bottom
+if st.sidebar.button("Reload Data"):
+    st.cache_data.clear()
+    st.rerun()
 
 # Order: W, T, F, Q, V, then others alphabetically (or just appended)
 priority_order = {'W': 0, 'T': 1, 'F': 2, 'Q': 3, 'V': 4}
@@ -520,7 +523,7 @@ def render_video_grid(df_subset):
 
             with col:
                 # Flattened Card HTML to prevent Markdown code block issues
-                card_html = f"""<a href="{video_url}" target="_blank" class="card-link"><div class="dance-card"><div style="width:100%; height:200px; overflow:hidden; position:relative;"><img src="{img_url}" alt="{dancer}" onerror="this.onerror=null; this.src='https://via.placeholder.com/320x180.png?text=No+Image'" style="width:100%; height:100%; object-fit:cover;"></div><div class="dance-card-content">{memo_html}<div class="dance-title">{dancer}</div><div class="dance-meta"><span>{discipline}</span><span class="badge" style="font-size:0.75rem; background:#CC0000; color=white;">{platform_name}</span></div></div></div></a>"""
+                card_html = f"""<a href="{video_url}" target="_blank" class="card-link"><div class="dance-card"><div style="width:100%; height:200px; overflow:hidden; position:relative;"><img src="{img_url}" alt="{dancer}" onerror="this.onerror=null; this.src='https://via.placeholder.com/320x180.png?text=No+Image'" style="width:100%; height:100%; object-fit:cover;"></div><div class="dance-card-content"><div class="dance-title">{dancer}</div>{memo_html}<div class="dance-meta"><span>{discipline}</span><span class="badge" style="font-size:0.75rem; background:#CC0000; color=white;">{platform_name}</span></div></div></div></a>"""
                 
                 st.markdown(card_html, unsafe_allow_html=True)
                 
