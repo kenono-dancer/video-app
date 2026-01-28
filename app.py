@@ -767,5 +767,17 @@ elif view_mode == "Latest":
         
     render_video_grid(df_latest)
 
+# Spacer to ensure content isn't hidden behind fixed footer
+st.write("")
+st.write("")
+st.write("")
+
+# Force Refresh Button (Visible at bottom of list)
+col_ref1, col_ref2 = st.columns([4, 2])
+with col_ref2:
+    if st.button("🔄 データ更新 / Reload", key="footer_reload", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
 # Footer Component
-st.markdown('<div class="footer">ITxDancer by Ken Ono</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer">ITxDancer by Ken Ono | v1.1</div>', unsafe_allow_html=True)
