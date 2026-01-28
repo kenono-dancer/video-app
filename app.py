@@ -546,7 +546,7 @@ def render_video_grid(df_subset):
 # Layout Logic based on View Mode (Fixed Radio)
 # -----------------------------------------------------------------------------
 # Place Radio in Main Layout but style it fixed
-view_mode = st.radio("View Mode", ["By Dancer", "By Dance"], horizontal=True, label_visibility="collapsed")
+view_mode = st.radio("View Mode", ["Latest", "By Dancer", "By Dance"], horizontal=True, label_visibility="collapsed")
 
 # Custom CSS to Fix Position to Top-Left Header (Next to Toggle)
 st.markdown("""
@@ -753,6 +753,19 @@ elif view_mode == "By Dance":
         
         render_video_grid(sub_df)
         st.markdown("---")
+
+elif view_mode == "Latest":
+    # Reverse order: Show new items (bottom of sheet) first
+    # filtered_df matches sheet order by default (minus filtering).
+    # Just reverse it.
+    df_latest = filtered_df.iloc[::-1]
+    
+    # Store original index if not present (though it likely is from filtering copy if we did it right, 
+    # but let's ensure we can edit safely)
+    if '_original_index' not in df_latest.columns:
+        df_latest['_original_index'] = df_latest.index
+        
+    render_video_grid(df_latest)
 
 # Footer Component
 st.markdown('<div class="footer">ITxDancer by Ken Ono</div>', unsafe_allow_html=True)
