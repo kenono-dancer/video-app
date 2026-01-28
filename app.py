@@ -788,62 +788,167 @@ elif view_mode == "By Dance":
     
     # Create Sticky Header / Menu
     # Stylish Button-like Links using HTML/CSS
-    nav_html = """
-    <style>
-        .nav-container {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #1E1E1E;
-            border-radius: 12px;
-            border: 1px solid #333;
-            overflow-x: auto;
-        }
-        .nav-pill {
-            text-decoration: none;
-            color: #fff;
-            background-color: #333;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            white-space: nowrap;
-            transition: all 0.2s ease;
-            border: 1px solid transparent;
-        }
-        .nav-pill:hover {
-            background-color: #555;
-            color: #E1BEE7;
-            transform: translateY(-2px);
-            border-color: #E1BEE7;
-            text-decoration: none;
-        }
-        .nav-pill:active {
-            transform: translateY(0);
-        }
-    </style>
-    <div class="nav-container">
-    """
-    for t in targets:
-        nav_html += f'<a href="#{t.lower()}" class="nav-pill">{t}</a>'
-    nav_html += "</div>"
+    # --------------------------------------------------------------------------------
+    # Alphabet Index Logic & UI
+    # --------------------------------------------------------------------------------
     
-    st.markdown(nav_html, unsafe_allow_html=True)
+    # 1. Prepare Data: Group dancers by initial
+    # We already have 'sorted_dancers' which is a list of default sorted names.
+    # We need to create a dictionary: { 'A': [Dancer1, ...], 'B': [Dancer2, ...], ... }
     
-    for target in targets:
-        st.header(target, anchor=target.lower())
-        
-        if target == "Other":
-            sub_df = filtered_df[~filtered_df['種目'].isin(["W", "T", "F", "Q", "V"])]
+    dancer_groups = {}
+    sorted_initials = []
+    
+    # Initialize kakasi for romanization if not already done globally/efficiently
+    kks = pykakasi.kakasi()
+    kks.setMode("H", "a")
+    kks.setMode("K", "a")
+    kks.setMode("J", "a")
+    conv = kks.getConverter()
+
+    for dancer in sorted_dancers:
+        # Get first character
+        # Convert to romaji to handle Kanji/Kana names correctly
+        romaji = conv.do(dancer)
+        if not romaji:
+            initial = "?"
         else:
-            sub_df = filtered_df[filtered_df['種目'] == target]
+            initial = romaji[0].upper()
+            
+        # Group non-alpha into '#'
+        if not initial.isalpha():
+            initial = "#"
+            
+        if initial not in dancer_groups:
+            dancer_groups[initial] = []
+        dancer_groups[initial].append(dancer)
         
-        # Sort sub_df by dancer for cleanliness
-        sub_df = sub_df.sort_values(by=['ダンサー'])
+    sorted_initials = sorted(dancer_groups.keys())
+    # Ensure '#' is last
+    if '#' in sorted_initials:
+        sorted_initials.remove('#')
+        sorted_initials.append('#')
+
+    # 2. Inject HTML/CSS/JS for the Index Bar
+    # We pass the list of initials to JS so it knows what exists
+    
+    index_bar_html = f"""
+    <style>
+        .alphabet-index {{
+            position: fixed;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-40%); /* Adjust to avoid overlapping footer/header too much */
+            display: flex;
+            flex-direction: column;
+            z-index: 99999;
+            background-color: rgba(30, 30, 30, 0.8);
+            border-radius: 20px;
+            padding: 10px 4px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+            /* Hide scrollbar for the index itself */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }}
+        .alphabet-index::-webkit-scrollbar {{
+            display: none;
+        }}
+        .index-char {{
+            padding: 2px 0;
+            font-size: 11px;
+            color: #ccc;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: monospace; /* Monospace for alignment */
+            width: 20px;
+            user-select: none;
+            -webkit-user-select: none;
+        }}
+        .index-char:hover, .index-char.active {{
+            color: #E1BEE7;
+            transform: scale(1.3);
+        }}
+    </style>
+
+    <div class="alphabet-index" id="alphabetIndex">
+        {''.join([f'<div class="index-char" data-target="anchor-{char}">{char}</div>' for char in sorted_initials])}
+    </div>
+
+    <script>
+        const indexContainer = document.getElementById('alphabetIndex');
         
-        render_video_grid(sub_df)
-        st.markdown("---")
+        // Tap/Click handler
+        indexContainer.addEventListener('click', (e) => {{
+            if (e.target.classList.contains('index-char')) {{
+                const targetId = e.target.getAttribute('data-target');
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {{
+                    targetElement.scrollIntoView({{behavior: "smooth", block: "start"}});
+                }}
+            }}
+        }});
+        
+        // Touch Slide handler
+        indexContainer.addEventListener('touchmove', (e) => {{
+            e.preventDefault(); // Prevent page scrolling
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            
+            if (target && target.classList.contains('index-char')) {{
+                const targetId = target.getAttribute('data-target');
+                const targetElement = document.getElementById(targetId);
+                
+                // Debounce/Throttle could be added here if performance suffers, 
+                // but direct scrollIntoView might be too jerky during slide. 
+                // Better to just highlight or jump less frequently.
+                // For now, let's try direct jump but maybe 'auto' behavior to reduce lag
+                if (targetElement) {{
+                    targetElement.scrollIntoView({{behavior: "auto", block: "start"}});
+                }}
+            }}
+        }}, {{passive: false}});
+    </script>
+    """
+    st.markdown(index_bar_html, unsafe_allow_html=True)
+
+    # 3. Render content with Anchor Headers
+    for initial in sorted_initials:
+        # Create an anchor div for the initial
+        # We use a markdown div with id because st.header(anchor=...) creates link icons we might not want, 
+        # or we want full control.
+        st.markdown(f"""
+            <div id="anchor-{initial}" style="
+                padding-top: 60px; 
+                margin-top: -40px; 
+                border-bottom: 2px solid #E1BEE7; 
+                margin-bottom: 20px;
+                font-size: 24px; 
+                font-weight: bold; 
+                color: #E1BEE7;">
+                {initial}
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Render dancers for this initial
+        current_group = dancer_groups[initial]
+        
+        for dancer in current_group:
+            # We can reuse st.expander for dancers as before, or headers.
+            # Previous code used toggle buttons (nav-pills) which is bad for many items.
+            # Let's switch to Expanders or just Headers under the Initial.
+            # The prompt implies "many dancers", so let's stick to the visual style of "By Dancer" 
+            # but grouped.
+            
+            # Using subheader for dancer name
+            st.markdown(f"#### {dancer}")
+            
+            sub_df = filtered_df[filtered_df['ダンサー'] == dancer]
+            render_video_grid(sub_df)
+            st.markdown("---")
+
 
 elif view_mode == "Latest":
     # Reverse order: Show new items (bottom of sheet) first
