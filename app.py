@@ -25,16 +25,6 @@ except Exception as e:
     st.stop()
 
 # Continue with main app logic only if imports succeed
-try:
-    # ... rest of the app ...
-    pass 
-    # NOTE: Since the file is large, I will not wrap the whole file in one go with replace_file_content.
-    # Instead, I will rely on the fact that Python executes top-down. 
-    # If the imports fail, the above block catches it.
-    # If the main logic fails, we need another try-except block wrapping the rest, or just let Streamlit catch it (which it usually does).
-    # The "Oh no" error often happens at IMPORT time or very early setup.
-    pass 
-
 
 # -----------------------------------------------------------------------------
 # Page Configuration & CSS
