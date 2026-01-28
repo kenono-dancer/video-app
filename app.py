@@ -12,6 +12,7 @@ from googleapiclient.http import MediaIoBaseUpload
 import io
 
 # Fix for SSL: CERTIFICATE_VERIFY_FAILED on macOS
+# (Force rebuild trigger: 2026-01-29)
 try:
     _create_unverified_https_context = ssl._create_unverified_context
 except AttributeError:
