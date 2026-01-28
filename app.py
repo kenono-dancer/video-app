@@ -1,9 +1,15 @@
 
 import streamlit as st
 import pandas as pd
+import streamlit as st
+import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 import ssl
 import pykakasi
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
 
 # Fix for SSL: CERTIFICATE_VERIFY_FAILED on macOS
 try:
@@ -57,10 +63,11 @@ st.markdown("""
     
     /* Thumbnail Image */
     .dance-card img {
-        width: 100%;
-        height: auto;
-        display: block;
-        object-fit: cover;
+        width: 100% !important;
+        height: 200px !important; /* Fixed height for consistent card size */
+        display: block !important;
+        object-fit: contain !important; /* Ensure full image is visible */
+        background-color: #000 !important; /* Black background for letterboxing */
     }
     
     /* Card Content */
@@ -148,6 +155,58 @@ if missing_cols:
 
 # Ensure Memo column (Col F / Index 5) exists
 if 'メモ' not in df.columns:
+    df['メモ'] = ""
+
+# -----------------------------------------------------------------------------
+# Google Drive Upload Helper
+# -----------------------------------------------------------------------------
+# Folder ID from GAS script
+DRIVE_FOLDER_ID = "13fNsuwfvL3TKTawp8XlXM_fuPu63F1-d"
+
+def upload_image_to_drive(file_obj, filename):
+    """Uploads a file object to Google Drive and returns the direct link."""
+    try:
+        # Load credentials from secrets
+        conn_secrets = st.secrets["connections"]["gsheets"]
+        creds = service_account.Credentials.from_service_account_info(
+            conn_secrets,
+            scopes=["https://www.googleapis.com/auth/drive.file"]
+        )
+        
+        service = build('drive', 'v3', credentials=creds)
+        
+        file_metadata = {
+            'name': filename,
+            'parents': [DRIVE_FOLDER_ID]
+        }
+        
+        media = MediaIoBaseUpload(file_obj, mimetype=file_obj.type, resumable=True)
+        
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id'
+        ).execute()
+        
+        file_id = file.get('id')
+        
+        # Make it public (Anyone with link can view)
+        service.permissions().create(
+            fileId=file_id,
+            body={'role': 'reader', 'type': 'anyone'}
+        ).execute()
+        
+        # Return the direct link format used in the app (lh3.googleusercontent.com is hard to get via API without extra steps, 
+        # so we use the standard drive thumbnail/view link, or we can construct a view link)
+        # However, for st.image to work, we usually need a direct link. 
+        # The GAS script uses `lh3.googleusercontent.com` which is great, but API v3 `webContentLink` is often not a direct image.
+        # Let's try `https://drive.google.com/uc?id={file_id}` which usually redirects to a visible image.
+        
+        return f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000" # Using thumbnail endpoint for reliability with st.image
+        
+    except Exception as e:
+        st.error(f"Drive Upload Error: {e}")
+        return None
     if len(df.columns) >= 6:
         df.rename(columns={df.columns[5]: 'メモ'}, inplace=True)
     else:
@@ -369,29 +428,54 @@ filtered_df['sort_name'] = filtered_df['種目'].apply(lambda x: get_sort_key(x)
 # -----------------------------------------------------------------------------
 @st.dialog("動画情報の編集 (Edit Video)")
 def edit_video_dialog(index, row_data):
+    # Using a form to bundle the inputs
     with st.form("edit_form"):
         e_dancer = st.text_input("ダンサー (Dancer)", value=row_data['ダンサー'])
-        e_discipline = st.selectbox("Dance", ['W', 'T', 'F', 'Q', 'V', 'S', 'C', 'R', 'P', 'J', 'Other'], index=['W', 'T', 'F', 'Q', 'V', 'S', 'C', 'R', 'P', 'J', 'Other'].index(row_data['種目']) if row_data['種目'] in ['W', 'T', 'F', 'Q', 'V', 'S', 'C', 'R', 'P', 'J', 'Other'] else 10)
+        # Simplified selectbox for consistency
+        disciplines = ['W', 'T', 'F', 'Q', 'V', 'S', 'C', 'R', 'P', 'J', 'Other']
+        current_disc = row_data['種目'] if row_data['種目'] in disciplines else 'Other'
+        e_discipline = st.selectbox("Dance", disciplines, index=disciplines.index(current_disc))
+        
         e_img_url = st.text_input("画像URL (Image URL)", value=row_data['画像URL'])
         e_video_url = st.text_input("動画URL (Video URL)", value=row_data['動画URL'])
         e_memo = st.text_area("メモ (Memo)", value=row_data['メモ'])
         
-        if st.form_submit_button("更新 (Update)"):
+        # --- File Uploader ---
+        st.markdown("---")
+        st.markdown("**サムネイル画像のアップロード (Upload Thumbnail)**")
+        st.caption("画像をアップロードすると、上記のURL入力欄より優先されます。(Uploaded image takes priority)")
+        uploaded_file = st.file_uploader("Choose an image...", type=['jpg', 'jpeg', 'png'])
+        
+        submitted = st.form_submit_button("更新 (Update)")
+        
+        if submitted:
             # Update logic
             try:
-                # Need to verify we are updating the correct row in the original DF
-                # Use the 'index' passed, which should be the original index
-                conn = st.connection("gsheets", type=GSheetsConnection)
+                final_img_url = e_img_url
                 
-                # Fetch fresh data to ensure we don't overwrite other unrelated changes if possible, 
-                # but simplest is to modify our current cached df and push.
-                # BETTER: Read fresh, update one row, push.
+                # Handle File Upload
+                if uploaded_file is not None:
+                    with st.spinner("Uploading to Google Drive..."):
+                        # Use a safe filename
+                        import datetime
+                        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                        safe_name = f"manual_{timestamp}_{uploaded_file.name}"
+                        drive_link = upload_image_to_drive(uploaded_file, safe_name)
+                        
+                        if drive_link:
+                            final_img_url = drive_link
+                            st.success("画像アップロード成功！ (Image Uploaded)")
+                        else:
+                            st.error("画像アップロードに失敗しました (Upload Failed)")
+                            st.stop() # Stop update if upload failed
+
+                conn = st.connection("gsheets", type=GSheetsConnection)
                 curr_df = conn.read(spreadsheet=SPREADSHEET_URL)
                 
                 # Update the specific row
                 curr_df.at[index, 'ダンサー'] = e_dancer
                 curr_df.at[index, '種目'] = e_discipline
-                curr_df.at[index, '画像URL'] = e_img_url
+                curr_df.at[index, '画像URL'] = final_img_url # Use final URL
                 curr_df.at[index, '動画URL'] = e_video_url
                 curr_df.at[index, 'メモ'] = e_memo
                 
@@ -780,4 +864,4 @@ with col_ref2:
         st.rerun()
 
 # Footer Component
-st.markdown('<div class="footer">ITxDancer by Ken Ono | v1.1</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer">ITxDancer by Ken Ono | v1.2</div>', unsafe_allow_html=True)

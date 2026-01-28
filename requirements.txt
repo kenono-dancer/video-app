@@ -1,5 +1,7 @@
-streamlit
-pandas
-st-gsheets-connection
-streamlit-keyup
-pykakasi
+streamlit==1.32.0
+pandas==1.5.3
+st-gsheets-connection==0.0.3
+watchdog
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
