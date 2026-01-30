@@ -667,7 +667,7 @@ def render_video_grid(df_subset):
 
             with col:
                 # Flattened Card HTML to prevent Markdown code block issues
-                card_html = f"""<a href="{video_url}" target="_blank" class="card-link"><div class="dance-card"><div style="width:100%; height:200px; overflow:hidden; position:relative;"><img src="{img_url}" alt="{dancer}" onerror="this.onerror=null; this.src='https://via.placeholder.com/320x180.png?text=No+Image'" style="width:100%; height:100%; object-fit:cover;"></div><div class="dance-card-content"><div class="dance-title">{dancer}</div>{memo_html}<div class="dance-meta"><span>{discipline}</span><span class="badge" style="font-size:0.75rem; background:#CC0000; color=white;">{platform_name}</span></div></div></div></a>"""
+                card_html = f"""<a href="{video_url}" target="_blank" class="card-link"><div class="dance-card"><div style="width:100%; height:200px; overflow:hidden; position:relative;"><img src="{img_url}" alt="{dancer}" style="width:100%; height:100%; object-fit:cover;"></div><div class="dance-card-content"><div class="dance-title">{dancer}</div>{memo_html}<div class="dance-meta"><span>{discipline}</span><span class="badge" style="font-size:0.75rem; background:#CC0000; color=white;">{platform_name}</span></div></div></div></a>"""
                 
                 st.markdown(card_html, unsafe_allow_html=True)
                 
