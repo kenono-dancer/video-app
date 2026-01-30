@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import json
 
 # APP VERSION
-APP_VERSION = "v2.0.2"
+APP_VERSION = "v2.0.3"
 
 
 try:
@@ -1071,9 +1071,14 @@ if view_mode == "By Dancer":
                         if img_url:
                             st.image(str(img_url), use_container_width=True)
                     with col2:
-                        st.write(f"**{row['曲名']}**")
-                        st.write(f"イベント: {row['イベント名']}")
+                        # Display Discipline as Title
+                        st.write(f"**{row['種目']}**")
                         
+                        # Display Memo if exists
+                        memo = row.get('メモ', '')
+                        if pd.notna(memo) and memo:
+                             st.caption(f"{memo}")
+
                         # Video Link from Video URL column
                         video_url = row.get('動画URL', '')
                         if video_url:
