@@ -771,42 +771,24 @@ if view_mode == "By Dancer":
     
     # Render Groups by Dancer
     # We use sort=False to preserve the custom sort order we just applied
-    grouped = df_dancer_sorted.groupby('ダンサー', sort=False)
+    # Remove standard groupby. We need custom grouping by initial.
     
-    for dancer_name, group_df in grouped:
-        st.markdown(f"### {dancer_name}")
-        # Reset index within the group for clean grid rendering (though render function handles chunks)
-        # We pass group_df directly.
-        render_video_grid(group_df)
-        st.markdown("---")
-
-elif view_mode == "By Dance":
-    # Sort by rank(Discipline), then by Dancer
+    # Apply sorting (Already done via yomi_key, but we need the raw list for iteration if not using groupby)
+    # Actually, let's use the sorted dataframe.
+    dancers = df_dancer_sorted['ダンサー'].unique().tolist()
     
-    # Continuous List View with Header Links
-    targets = ["W", "T", "F", "Q", "V", "Other"]
-    
-    # Create Sticky Header / Menu
-    # Stylish Button-like Links using HTML/CSS
     # --------------------------------------------------------------------------------
     # Alphabet Index Logic & UI
     # --------------------------------------------------------------------------------
     
     # 1. Prepare Data: Group dancers by initial
-    # We already have 'sorted_dancers' which is a list of default sorted names.
-    # We need to create a dictionary: { 'A': [Dancer1, ...], 'B': [Dancer2, ...], ... }
-    
     dancer_groups = {}
     sorted_initials = []
     
-    # Initialize kakasi for romanization if not already done globally/efficiently
-    kks = pykakasi.kakasi()
-    kks.setMode("H", "a")
-    kks.setMode("K", "a")
-    kks.setMode("J", "a")
+    # kks is initialized globally
     conv = kks.getConverter()
 
-    for dancer in sorted_dancers:
+    for dancer in dancers:
         # Get first character
         # Convert to romaji to handle Kanji/Kana names correctly
         romaji = conv.do(dancer)
@@ -830,46 +812,46 @@ elif view_mode == "By Dance":
         sorted_initials.append('#')
 
     # 2. Inject HTML/CSS/JS for the Index Bar
-    # We pass the list of initials to JS so it knows what exists
     
     index_bar_html = f"""
     <style>
         .alphabet-index {{
             position: fixed;
-            right: 10px;
+            right: 0px; 
             top: 50%;
-            transform: translateY(-40%); /* Adjust to avoid overlapping footer/header too much */
+            transform: translateY(-40%);
             display: flex;
             flex-direction: column;
             z-index: 99999;
-            background-color: rgba(30, 30, 30, 0.8);
-            border-radius: 20px;
-            padding: 10px 4px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            background-color: rgba(20, 20, 20, 0.9);
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+            padding: 10px 2px;
+            box-shadow: -2px 2px 5px rgba(0,0,0,0.5);
             max-height: 80vh;
             overflow-y: auto;
-            /* Hide scrollbar for the index itself */
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
+            width: 30px;
+            /* Hide scrollbar */
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }}
         .alphabet-index::-webkit-scrollbar {{
             display: none;
         }}
         .index-char {{
-            padding: 2px 0;
+            padding: 4px 0;
             font-size: 11px;
-            color: #ccc;
+            color: #aaa;
             text-align: center;
             cursor: pointer;
             font-weight: bold;
-            font-family: monospace; /* Monospace for alignment */
-            width: 20px;
+            font-family: sans-serif;
             user-select: none;
             -webkit-user-select: none;
         }}
-        .index-char:hover, .index-char.active {{
-            color: #E1BEE7;
-            transform: scale(1.3);
+        .index-char:hover, .index-char:active {{
+            color: #FF8C00;
+            transform: scale(1.2);
         }}
     </style>
 
@@ -880,7 +862,6 @@ elif view_mode == "By Dance":
     <script>
         const indexContainer = document.getElementById('alphabetIndex');
         
-        // Tap/Click handler
         indexContainer.addEventListener('click', (e) => {{
             if (e.target.classList.contains('index-char')) {{
                 const targetId = e.target.getAttribute('data-target');
@@ -891,20 +872,14 @@ elif view_mode == "By Dance":
             }}
         }});
         
-        // Touch Slide handler
         indexContainer.addEventListener('touchmove', (e) => {{
-            e.preventDefault(); // Prevent page scrolling
+            e.preventDefault(); 
             const touch = e.touches[0];
             const target = document.elementFromPoint(touch.clientX, touch.clientY);
             
             if (target && target.classList.contains('index-char')) {{
                 const targetId = target.getAttribute('data-target');
                 const targetElement = document.getElementById(targetId);
-                
-                // Debounce/Throttle could be added here if performance suffers, 
-                // but direct scrollIntoView might be too jerky during slide. 
-                // Better to just highlight or jump less frequently.
-                // For now, let's try direct jump but maybe 'auto' behavior to reduce lag
                 if (targetElement) {{
                     targetElement.scrollIntoView({{behavior: "auto", block: "start"}});
                 }}
@@ -916,38 +891,93 @@ elif view_mode == "By Dance":
 
     # 3. Render content with Anchor Headers
     for initial in sorted_initials:
-        # Create an anchor div for the initial
-        # We use a markdown div with id because st.header(anchor=...) creates link icons we might not want, 
-        # or we want full control.
+        # Initial Header with Anchor
         st.markdown(f"""
             <div id="anchor-{initial}" style="
                 padding-top: 60px; 
-                margin-top: -40px; 
-                border-bottom: 2px solid #E1BEE7; 
-                margin-bottom: 20px;
-                font-size: 24px; 
+                margin-top: -30px; 
+                border-bottom: 2px solid #444; 
+                margin-bottom: 10px;
+                font-size: 18px; 
                 font-weight: bold; 
-                color: #E1BEE7;">
+                color: #FF8C00;">
                 {initial}
             </div>
             """, unsafe_allow_html=True)
             
-        # Render dancers for this initial
         current_group = dancer_groups[initial]
         
         for dancer in current_group:
-            # We can reuse st.expander for dancers as before, or headers.
-            # Previous code used toggle buttons (nav-pills) which is bad for many items.
-            # Let's switch to Expanders or just Headers under the Initial.
-            # The prompt implies "many dancers", so let's stick to the visual style of "By Dancer" 
-            # but grouped.
-            
-            # Using subheader for dancer name
-            st.markdown(f"#### {dancer}")
-            
-            sub_df = filtered_df[filtered_df['ダンサー'] == dancer]
-            render_video_grid(sub_df)
-            st.markdown("---")
+            with st.expander(f"{dancer}", expanded=False):
+                # Filter original DF by dancer to get videos
+                sub_df = filtered_df[filtered_df['ダンサー'] == dancer]
+                render_video_grid(sub_df)
+
+elif view_mode == "By Dance":
+    # Sort by rank(Discipline), then by Dancer
+    
+    # Continuous List View with Header Links
+    targets = ["W", "T", "F", "Q", "V", "Other"]
+    
+    # Create Sticky Header / Menu
+    # Stylish Button-like Links using HTML/CSS
+    nav_html = """
+    <style>
+        .nav-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #1E1E1E;
+            border-radius: 12px;
+            border: 1px solid #333;
+            overflow-x: auto;
+        }
+        .nav-pill {
+            text-decoration: none;
+            color: #fff;
+            background-color: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        .nav-pill:hover {
+            background-color: #555;
+            color: #E1BEE7;
+            transform: translateY(-2px);
+            border-color: #E1BEE7;
+            text-decoration: none;
+        }
+        .nav-pill:active {
+            transform: translateY(0);
+        }
+    </style>
+    <div class="nav-container">
+    """
+    for t in targets:
+        nav_html += f'<a href="#{t.lower()}" class="nav-pill">{t}</a>'
+    nav_html += "</div>"
+    
+    st.markdown(nav_html, unsafe_allow_html=True)
+    
+    for target in targets:
+        st.header(target, anchor=target.lower())
+        
+        if target == "Other":
+            sub_df = filtered_df[~filtered_df['種目'].isin(["W", "T", "F", "Q", "V"])]
+        else:
+            sub_df = filtered_df[filtered_df['種目'] == target]
+        
+        # Sort sub_df by dancer for cleanliness
+        sub_df = sub_df.sort_values(by=['ダンサー'])
+        
+        render_video_grid(sub_df)
+        st.markdown("---")
+
 
 
 elif view_mode == "Latest":
