@@ -204,7 +204,13 @@ def upload_image_to_drive(file_obj, filename, folder_id=None):
             }
             
             response = requests.post(gas_url, data=payload)
-            result = response.json()
+            try:
+                result = response.json()
+            except Exception:
+                st.error(f"GAS API Error. Status: {response.status_code}")
+                with st.expander("Response Content (Debug)"):
+                    st.text(response.text[:1000]) # Show first 1000 chars
+                return None
             
             if "success" in result and result["success"]:
                 return result["url"]
@@ -213,6 +219,8 @@ def upload_image_to_drive(file_obj, filename, folder_id=None):
                 return None
 
         # OPTION A: DIRECT SERVICE ACCOUNT UPLOAD (Existing Logic)
+        # ... (rest of function)
+
         # Load credentials from secrets
         conn_secrets = st.secrets["connections"]["gsheets"]
         creds = service_account.Credentials.from_service_account_info(
