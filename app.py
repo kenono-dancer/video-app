@@ -1,6 +1,9 @@
-
 import streamlit as st
 import traceback
+
+# APP VERSION
+APP_VERSION = "v1.1.0"
+
 
 try:
     import pandas as pd
@@ -17,14 +20,30 @@ try:
     # Fix for SSL: CERTIFICATE_VERIFY_FAILED on macOS
     # (Force rebuild trigger: 2026-01-29)
     try:
-        _create_unverified_https_context = ssl._create_unverified_context
+        _create_unverified_https_context = ssl._create_unverified_https_context
     except AttributeError:
         pass
     else:
         ssl._create_default_https_context = _create_unverified_https_context
+
+    # -----------------------------------------------------------------------------
+    # Footer (Version & Reload)
+    # -----------------------------------------------------------------------------
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"**App Version:** `{APP_VERSION}`")
+    if st.sidebar.button("🔄 Force Reload"):
+        st.cache_data.clear()
+        st.rerun()
+
+# End of Main Logic
 except Exception as e:
-    st.error("Startup Error: An error occurred during imports.")
+    st.error(f"Startup Error: {e}")
     st.code(traceback.format_exc())
+    # Try to clear cache if startup fails, might be a data issue
+    try:
+        st.cache_data.clear()
+    except:
+        pass
     st.stop()
 
 # Continue with main app logic only if imports succeed
@@ -459,9 +478,9 @@ edit_mode = st.sidebar.toggle("🔧 Edit Mode", value=False)
 
 st.sidebar.markdown("---")
 # Reload Data Button (Manual Refresh) - Moved to bottom
-if st.sidebar.button("Reload Data"):
-    st.cache_data.clear()
-    st.rerun()
+# if st.sidebar.button("Reload Data"):
+#     st.cache_data.clear()
+#     st.rerun()
 
 # Order: W, T, F, Q, V, then others alphabetically (or just appended)
 priority_order = {'W': 0, 'T': 1, 'F': 2, 'Q': 3, 'V': 4}
@@ -871,162 +890,10 @@ if view_mode == "By Dancer":
         sorted_initials.remove('#')
         sorted_initials.append('#')
 
-    # 2. Inject HTML/CSS/JS for the Index Bar via Iframe (Components)
-    # This allows robust JS execution to target window.parent.document
-    
-    # Calculate height based on number of chars to fit snugly
-    # roughly 20px per char + padding
-    index_height = len(sorted_initials) * 20 + 40
-    if index_height > 600: index_height = 600
-
-    index_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <style>
-        body {{
-            margin: 0;
-            padding: 0;
-            background: transparent;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }}
-        .alphabet-index {{
-            display: flex;
-            flex-direction: column;
-            background-color: rgba(20, 20, 20, 0.9);
-            border-radius: 12px;
-            padding: 8px 4px; /* Slightly wider */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-            max-height: 95vh;
-            overflow-y: auto;
-            width: 32px;
-            
-            /* Hide scrollbar */
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }}
-        .alphabet-index::-webkit-scrollbar {{
-            display: none;
-        }}
-        .index-char {{
-            padding: 2px 0;
-            font-size: 11px;
-            color: #ccc;
-            text-align: center;
-            cursor: pointer;
-            font-weight: bold;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none; /* Crucial for custom touch handling */
-        }}
-        .index-char:hover, .index-char:active, .index-char.active {{
-            color: #FF8C00;
-            transform: scale(1.4);
-        }}
-    </style>
-    </head>
-    <body>
-    <div class="alphabet-index" id="alphabetIndex">
-        {''.join([f'<div class="index-char" data-target="anchor-{char}">{char}</div>' for char in sorted_initials])}
-    </div>
-
-    <script>
-        const indexContainer = document.getElementById('alphabetIndex');
-        
-        // Helper to find parent element
-        function getParentElement(id) {{
-            // Streamlit apps are often in nested iframes, but usually window.parent.document works 
-            // if we are just one level deep (standard components).
-            // NOTE: Cross-origin restrictions might apply if Streamlit Cloud serves components from different domain.
-            // But usually simple components are same-origin or sandboxed in allowed way.
-            return window.parent.document.getElementById(id);
-        }}
-
-        function scrollTargetIntoView(targetId) {{
-            const el = getParentElement(targetId);
-            if (el) {{
-                el.scrollIntoView({{behavior: "smooth", block: "start"}});
-            }} else {{
-                console.log("Element not found:", targetId);
-            }}
-        }}
-
-        // Click
-        indexContainer.addEventListener('click', (e) => {{
-            if (e.target.classList.contains('index-char')) {{
-                const targetId = e.target.getAttribute('data-target');
-                scrollTargetIntoView(targetId);
-            }}
-        }});
-        
-        // Touch Slide (Touch Move)
-        indexContainer.addEventListener('touchmove', (e) => {{
-            e.preventDefault(); 
-            const touch = e.touches[0];
-            
-            // elementFromPoint works relative to the viewport. 
-            // Since we are in an iframe, clientX/Y are relative to the iframe.
-            const target = document.elementFromPoint(touch.clientX, touch.clientY);
-            
-            if (target && target.classList.contains('index-char')) {{
-                const targetId = target.getAttribute('data-target');
-                // Use 'auto' behavior for sliding to avoid lag
-                const el = getParentElement(targetId);
-                if (el) {{
-                     el.scrollIntoView({{behavior: "auto", block: "start"}});
-                }}
-            }}
-        }}, {{passive: false}});
-    </script>
-    </body>
-    </html>
-    """
-    
-    # We place this component in a sidebar or floating div?
-    # Streamlit components render in flow. To make it "Fixed", we need to inject CSS into the main app 
-    # to position this specific iframe component, OR the component itself has fixed position logic?
-    # Actually, components are iframes. We can't escape the iframe bounds easily to be "fixed" on screen 
-    # unless we use Custom CSS in the main app to position the iframe container.
-    
-    # Strategy: 
-    # 1. Custom CSS in main app to position the specific div wrapping the component.
-    #    The component wrapper usually has a class like `stHtml`.
-    #    It's risky to target generically.
-    #    Better: Put the component in the sidebar? Data is "fixed" right.
-    #    Wait, the user wants it on the RIGHT edge of screen.
-    #    Standard sidebar is Left.
-    
-    # Better Strategy (Hybrid):
-    # Use st.markdown to inject a DIV that acts as a container at fixed position.
-    # INSIDE that div, we need the scripting capability.
-    # But st.markdown script is sandboxed or ineffective for scrolling.
-    
-    # Re-evaluation:
-    # If st.markdown script CANNOT scroll parent, we are stuck.
-    # BUT, many Streamlit users use `window.parent.document` inside `st.components.v1.html`.
-    # The problem is `st.components.v1.html` creates a block in the layout flow.
-    # We want it FLOATING on the right.
-    
-    # Solution:
-    # Use `st.markdown` to Inject CSS that targets the iframe generated by `components.html`.
-    # Can we target the *last* iframe or specific iframe? Hard.
-    
-    # FASTEST Fix for "Scroll not working" in `st.markdown` approach:
-    # It might be `window.parent` is needed EVEN IN `st.markdown` if Streamlit wraps it?
-    # No, usually `st.markdown` is in the DOM.
-    # Let's try to update the Script to use `window.parent` catch-all AND `document` catch-all.
-    # AND `window.top`.
-    
-    # Let's revert to st.markdown BUT robustify the JS.
-    # Why? Component iframe positioning is a nightmare (`z-index` wars with Streamlit UI).
-    # `st.markdown` with `position: fixed` worked VISUALLY.
-    # The issue is JS execution context.
-    
-    # Let's stick to st.markdown but use `window.top` and `window.parent` and `document`.
+    # 2. Inject HTML/CSS for the Index Bar (PURE CSS/HTML ANCHOR VERSION)
+    # Using standard ID anchors. 
+    # Note: Streamlit might need 'javascript:void(0)' workaround or just standard hashes.
+    # Standard hashes usually work if the ID exists in the DOM.
     
     index_bar_html = f"""
     <style>
@@ -1037,7 +904,7 @@ if view_mode == "By Dancer":
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
-            z-index: 999999; /* Super high z-index */
+            z-index: 999999;
             background-color: rgba(20, 20, 20, 0.9);
             border-radius: 12px;
             padding: 8px 2px;
@@ -1047,16 +914,17 @@ if view_mode == "By Dancer":
             width: 36px;
             -ms-overflow-style: none;
             scrollbar-width: none;
-            touch-action: none;
         }}
         .alphabet-index::-webkit-scrollbar {{
             display: none;
         }}
         .index-char {{
+            display: block;
             padding: 3px 0;
             font-size: 11px;
             color: #ddd;
             text-align: center;
+            text-decoration: none; /* Remove underline from A tags */
             cursor: pointer;
             font-weight: bold;
             font-family: sans-serif;
@@ -1071,70 +939,9 @@ if view_mode == "By Dancer":
         }}
     </style>
 
-    <div class="alphabet-index" id="alphabetIndex">
-        {''.join([f'<div class="index-char" data-target="anchor-{char}">{char}</div>' for char in sorted_initials])}
+    <div class="alphabet-index">
+        {''.join([f'<a class="index-char" href="#anchor-{char}">{char}</a>' for char in sorted_initials])}
     </div>
-
-    <script>
-        // Simplified and Robust Scroll Logic
-        (function() {{
-            const indexContainer = document.getElementById('alphabetIndex');
-
-            function getTarget(id) {{
-                // 1. Try directly in current document
-                let el = document.getElementById(id);
-                if (el) return el;
-                
-                // 2. Try in parent document (iframe scenario)
-                try {{
-                    if (window.parent && window.parent.document) {{
-                        el = window.parent.document.getElementById(id);
-                        if (el) return el;
-                    }}
-                }} catch(e) {{
-                    console.error("Access to parent blocked:", e);
-                }}
-                
-                // 3. Try searching all frames (if accessible)
-                return null;
-            }}
-
-            function scrollToId(targetId) {{
-                const el = getTarget(targetId);
-                if (el) {{
-                    el.scrollIntoView({{behavior: "smooth", block: "start"}});
-                }} else {{
-                    console.log("Target not found: " + targetId);
-                }}
-            }}
-            
-            // Pointer Down / Click
-            if (indexContainer) {{
-                indexContainer.addEventListener('click', (e) => {{
-                    if (e.target.classList.contains('index-char')) {{
-                        const targetId = e.target.getAttribute('data-target');
-                        scrollToId(targetId);
-                    }}
-                }});
-                
-                // Touch Move (Slide)
-                indexContainer.addEventListener('touchmove', (e) => {{
-                    e.preventDefault(); 
-                    const touch = e.touches[0];
-                    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                    
-                    if (target && target.classList.contains('index-char')) {{
-                        const targetId = target.getAttribute('data-target');
-                        const el = getTarget(targetId);
-                        if (el) {{ 
-                             // Auto behavior is faster for sliding
-                             el.scrollIntoView({{behavior: "auto", block: "start"}}); 
-                        }}
-                    }}
-                }}, {{passive: false}});
-            }}
-        }})();
-    </script>
     """
     st.markdown(index_bar_html, unsafe_allow_html=True)
 
