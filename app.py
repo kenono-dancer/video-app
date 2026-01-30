@@ -170,7 +170,7 @@ if 'メモ' not in df.columns:
 # Folder ID from GAS script
 DRIVE_FOLDER_ID = "13fNsuwfvL3TKTawp8XlXM_fuPu63F1-d"
 
-def upload_image_to_drive(file_obj, filename):
+def upload_image_to_drive(file_obj, filename, folder_id=None):
     """Uploads a file object to Google Drive and returns the direct link."""
     try:
         # Load credentials from secrets
@@ -182,9 +182,12 @@ def upload_image_to_drive(file_obj, filename):
         
         service = build('drive', 'v3', credentials=creds)
         
+        # Use provided folder ID or fallback to global default (if valid)
+        target_folder = folder_id if folder_id else DRIVE_FOLDER_ID
+        
         file_metadata = {
             'name': filename,
-            'parents': [DRIVE_FOLDER_ID]
+            'parents': [target_folder]
         }
         
         media = MediaIoBaseUpload(file_obj, mimetype=file_obj.type, resumable=True)
@@ -203,16 +206,15 @@ def upload_image_to_drive(file_obj, filename):
             body={'role': 'reader', 'type': 'anyone'}
         ).execute()
         
-        # Return the direct link format used in the app (lh3.googleusercontent.com is hard to get via API without extra steps, 
-        # so we use the standard drive thumbnail/view link, or we can construct a view link)
-        # However, for st.image to work, we usually need a direct link. 
-        # The GAS script uses `lh3.googleusercontent.com` which is great, but API v3 `webContentLink` is often not a direct image.
-        # Let's try `https://drive.google.com/uc?id={file_id}` which usually redirects to a visible image.
-        
-        return f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000" # Using thumbnail endpoint for reliability with st.image
+        # Return the thumbnail link
+        return f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
         
     except Exception as e:
-        st.error(f"Drive Upload Error: {e}")
+        error_msg = str(e)
+        if "storageQuotaExceeded" in error_msg:
+             st.error("Drive Error: Storage Quota Exceeded. Service Accounts have 0 bytes quota. Please specify a Folder ID shared with this service account.")
+        else:
+             st.error(f"Drive Upload Error: {e}")
         return None
     if len(df.columns) >= 6:
         df.rename(columns={df.columns[5]: 'メモ'}, inplace=True)
@@ -451,6 +453,8 @@ def edit_video_dialog(index, row_data):
         st.markdown("---")
         st.markdown("**サムネイル画像のアップロード (Upload Thumbnail)**")
         st.caption("画像をアップロードすると、上記のURL入力欄より優先されます。(Uploaded image takes priority)")
+        
+        drive_folder_input = st.text_input("Google Drive Folder ID (Optional)", placeholder="Leave empty to use default", help="共有フォルダIDを指定してください。")
         uploaded_file = st.file_uploader("Choose an image...", type=['jpg', 'jpeg', 'png'])
         
         submitted = st.form_submit_button("更新 (Update)")
@@ -467,7 +471,7 @@ def edit_video_dialog(index, row_data):
                         import datetime
                         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                         safe_name = f"manual_{timestamp}_{uploaded_file.name}"
-                        drive_link = upload_image_to_drive(uploaded_file, safe_name)
+                        drive_link = upload_image_to_drive(uploaded_file, safe_name, folder_id=drive_folder_input)
                         
                         if drive_link:
                             final_img_url = drive_link
@@ -790,8 +794,15 @@ if view_mode == "By Dancer":
 
     for dancer in dancers:
         # Get first character
-        # Convert to romaji to handle Kanji/Kana names correctly
-        romaji = conv.do(dancer)
+        if not isinstance(dancer, str) or not dancer:
+            initial = "?"
+            # Skip invalid entries or handle them
+        else:
+            # Convert to romaji to handle Kanji/Kana names correctly
+            try:
+                romaji = conv.do(dancer)
+            except Exception:
+                romaji = None
         if not romaji:
             initial = "?"
         else:
