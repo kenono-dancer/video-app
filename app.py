@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.1"
+APP_VERSION = "v1.1.2"
 
 
 try:
@@ -948,21 +948,37 @@ if view_mode == "By Dancer":
     
     <script>
         const indexContainer = document.getElementById('alphabetIndex');
+        let lastTargetChar = null; // To prevent spamming the same anchor
+        
         if (indexContainer) {{
             indexContainer.addEventListener('touchmove', (e) => {{
-                e.preventDefault(); // Prevent default scroll
+                // Prevent default global scroll to keep index stable
+                if (e.cancelable) e.preventDefault();
+                
                 const touch = e.touches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                
                 if (target && target.classList.contains('index-char')) {{
-                    // Trigger click or hash change
-                    // 'click()' might be throttled or ignored during touchmove in some browsers
-                    // Changing hash directly is reliable
-                    const href = target.getAttribute('href');
-                    if (href && window.location.hash !== href) {{
-                         window.location.hash = href;
+                    const char = target.getAttribute('data-char');
+                    
+                    // Only act if we moved to a new character
+                    if (char && char !== lastTargetChar) {{
+                        lastTargetChar = char;
+                        
+                        // Simulate a click on the anchor tag
+                        // This triggers the native hash change and scroll behavior
+                        target.click();
+                        
+                        // Optional: Vibration feedback if available
+                        if (navigator.vibrate) navigator.vibrate(5);
                     }}
                 }}
             }}, {{passive: false}});
+            
+            // Clear lastTarget on touch end so re-tapping works
+            indexContainer.addEventListener('touchend', () => {{
+                lastTargetChar = null;
+            }});
         }}
     </script>
     """
