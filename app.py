@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import json
 
 # APP VERSION
-APP_VERSION = "v2.1.0"
+APP_VERSION = "v2.1.1"
 
 
 try:
@@ -298,6 +298,166 @@ else:
 
 df['メモ'] = df['メモ'].fillna("").astype(str)
 df['platform'] = df['platform'].fillna("YouTube").astype(str)
+
+# ==========================================
+# 5. ALPHABET INDEX (Global Helper) v2.1.1
+# ==========================================
+
+# Define reusable function for Slide Index
+def render_slide_index(items):
+    """
+    Renders a fixed-position right-side index bar with slide-to-scroll support.
+    Args:
+        items: List of strings (keys) to display in the index.
+               The anchors must be id='anchor-{item}'
+    """
+    if not items: return
+
+    # CSS for the Index Bar (Glassmorphism)
+    index_bar_css = f"""
+    <style>
+        .alphabet-index {{
+            position: fixed;
+            right: 10px; 
+            top: 55%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            z-index: 999999;
+            background-color: rgba(20, 20, 20, 0.6); /* Darker, more premium */
+            backdrop-filter: blur(8px);
+            border-radius: 16px; /* Pill shape */
+            padding: 12px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 44px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            touch-action: none !important; /* Prevent default touch scrolling */
+        }}
+        .alphabet-index::-webkit-scrollbar {{
+            display: none;
+        }}
+        .index-char {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1; 
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none; 
+            cursor: pointer;
+            font-weight: 600;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            width: 100%;
+            height: 24px; /* Fixed height for consistency */
+            transition: all 0.1s ease;
+        }}
+        .index-char:hover {{
+             color: white;
+             transform: scale(1.1);
+        }}
+        .index-char.active {{
+            background-color: #FF8C00; /* Premium Orange */
+            color: white !important;
+            transform: scale(1.4);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
+            font-weight: bold;
+        }}
+    </style>
+
+    <div class="alphabet-index" id="alphabetIndex">
+        {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char if len(char) < 3 else char[:2]}</a>' for char in items])}
+    </div>
+    """
+    
+    # Inject HTML/CSS
+    st.markdown(index_bar_css, unsafe_allow_html=True)
+
+    # Inject JavaScript logic via Component (Escapes Iframe Sandbox)
+    components.html("""
+    <script>
+        (function() {
+            // Target the PARENT document (Main App Window)
+            const parentDoc = window.parent.document;
+            const win = window.parent;
+            
+            // Helper to find the index container in the parent
+            const waitForElement = (selector, callback) => {
+                const interval = setInterval(() => {
+                    const el = parentDoc.querySelector(selector);
+                    if (el) {
+                        clearInterval(interval);
+                        callback(el);
+                    }
+                }, 100);
+            };
+
+            waitForElement('#alphabetIndex', (indexContainer) => {
+                let lastTargetChar = null;
+
+                const handlePointer = (e) => {
+                    const x = e.clientX;
+                    const y = e.clientY;
+
+                    // Interaction Zone Logic (Rightmost 70px)
+                    const winWidth = win.innerWidth;
+                    const isZone = x > (winWidth - 70);
+
+                    if (!isZone) return;
+
+                    // Prevent Default Scroll handling by browser
+                    // but ONLY if we are in the zone
+                    if (e.cancelable && e.type !== 'pointerup') {
+                        e.preventDefault();
+                    }
+
+                    // Find element at coordinates
+                    const target = parentDoc.elementFromPoint(x, y);
+
+                    let char = null;
+                    if (target) {
+                        char = target.getAttribute('data-char');
+                    }
+
+                    // Visual Feedback
+                    const allChars = indexContainer.querySelectorAll('.index-char');
+                    allChars.forEach(c => c.classList.remove('active'));
+                    
+                    if (char) {
+                        const targetEl = parentDoc.querySelector(`.index-char[data-char="${char}"]`);
+                        if (targetEl) targetEl.classList.add('active');
+                    }
+
+                    // Scroll Logic
+                    if (char && char !== lastTargetChar) {
+                        lastTargetChar = char;
+                        const anchor = parentDoc.getElementById('anchor-' + char);
+                        if (anchor) {
+                            anchor.scrollIntoView({behavior: "auto", block: "start"});
+                            if (win.navigator.vibrate) win.navigator.vibrate(5);
+                        }
+                    }
+                };
+
+                // Attach robust pointer events to the Parent Window
+                win.addEventListener('pointerdown', handlePointer, {passive: false, capture: true});
+                win.addEventListener('pointermove', handlePointer, {passive: false, capture: true});
+                
+                // Cleanup on lift
+                win.addEventListener('pointerup', () => {
+                    lastTargetChar = null;
+                    const allChars = indexContainer.querySelectorAll('.index-char');
+                    allChars.forEach(c => c.classList.remove('active'));
+                }, {passive: false});
+            });
+        })();
+    </script>
+    """, height=0, width=0)
 
 # DEBUG: Check Memo Data
 # with st.sidebar.expander("Debug: Data Inspector"):
@@ -882,170 +1042,9 @@ if view_mode == "By Dancer":
         
     sorted_initials = sorted(dancer_groups.keys())
     # ==========================================
-    # 5. ALPHABET INDEX (Global Helper) v2.0.0 Refactored v2.1.0
+    # 5. ALPHABET INDEX
     # ==========================================
-    
-    # Define reusable function for Slide Index
-    def render_slide_index(items):
-        """
-        Renders a fixed-position right-side index bar with slide-to-scroll support.
-        Args:
-            items: List of strings (keys) to display in the index.
-                   The anchors must be id='anchor-{item}'
-        """
-        if not items: return
-
-        # Encode items for JS
-        # items_json = json.dumps(items) # Not strictly needed as we use DOM attributes
-
-        # CSS for the Index Bar (Glassmorphism)
-        index_bar_css = f"""
-        <style>
-            .alphabet-index {{
-                position: fixed;
-                right: 10px; 
-                top: 55%;
-                transform: translateY(-50%);
-                display: flex;
-                flex-direction: column;
-                z-index: 999999;
-                background-color: rgba(20, 20, 20, 0.6); /* Darker, more premium */
-                backdrop-filter: blur(8px);
-                border-radius: 16px; /* Pill shape */
-                padding: 12px 0;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                max-height: 80vh;
-                overflow-y: auto;
-                width: 44px;
-                -ms-overflow-style: none;
-                scrollbar-width: none;
-                touch-action: none !important; /* Prevent default touch scrolling */
-            }}
-            .alphabet-index::-webkit-scrollbar {{
-                display: none;
-            }}
-            .index-char {{
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                flex: 1; 
-                font-size: 11px;
-                color: rgba(255, 255, 255, 0.7);
-                text-decoration: none; 
-                cursor: pointer;
-                font-weight: 600;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                user-select: none;
-                -webkit-user-select: none;
-                width: 100%;
-                height: 24px; /* Fixed height for consistency */
-                transition: all 0.1s ease;
-            }}
-            .index-char:hover {{
-                 color: white;
-                 transform: scale(1.1);
-            }}
-            .index-char.active {{
-                background-color: #FF8C00; /* Premium Orange */
-                color: white !important;
-                transform: scale(1.4);
-                border-radius: 50%;
-                box-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
-                font-weight: bold;
-            }}
-        </style>
-
-        <div class="alphabet-index" id="alphabetIndex">
-            {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char if len(char) < 3 else char[:2]}</a>' for char in items])}
-        </div>
-        """
-        # Note: Added char[:2] abbreviation for long labels like "Other" -> "Ot"
-        
-        # Inject HTML/CSS
-        st.markdown(index_bar_css, unsafe_allow_html=True)
-
-        # Inject JavaScript logic via Component (Escapes Iframe Sandbox)
-        components.html("""
-        <script>
-            (function() {
-                // Target the PARENT document (Main App Window)
-                const parentDoc = window.parent.document;
-                const win = window.parent;
-                
-                // Helper to find the index container in the parent
-                const waitForElement = (selector, callback) => {
-                    const interval = setInterval(() => {
-                        const el = parentDoc.querySelector(selector);
-                        if (el) {
-                            clearInterval(interval);
-                            callback(el);
-                        }
-                    }, 100);
-                };
-
-                waitForElement('#alphabetIndex', (indexContainer) => {
-                    let lastTargetChar = null;
-
-                    const handlePointer = (e) => {
-                        const x = e.clientX;
-                        const y = e.clientY;
-
-                        // Interaction Zone Logic (Rightmost 70px)
-                        const winWidth = win.innerWidth;
-                        const isZone = x > (winWidth - 70);
-
-                        if (!isZone) return;
-
-                        // Prevent Default Scroll handling by browser
-                        // but ONLY if we are in the zone
-                        if (e.cancelable && e.type !== 'pointerup') {
-                            e.preventDefault();
-                        }
-
-                        // Find element at coordinates
-                        const target = parentDoc.elementFromPoint(x, y);
-
-                        let char = null;
-                        if (target) {
-                            char = target.getAttribute('data-char');
-                        }
-
-                        // Visual Feedback
-                        const allChars = indexContainer.querySelectorAll('.index-char');
-                        allChars.forEach(c => c.classList.remove('active'));
-                        
-                        if (char) {
-                            const targetEl = parentDoc.querySelector(`.index-char[data-char="${char}"]`);
-                            if (targetEl) targetEl.classList.add('active');
-                        }
-
-                        // Scroll Logic
-                        if (char && char !== lastTargetChar) {
-                            lastTargetChar = char;
-                            const anchor = parentDoc.getElementById('anchor-' + char);
-                            if (anchor) {
-                                anchor.scrollIntoView({behavior: "auto", block: "start"});
-                                if (win.navigator.vibrate) win.navigator.vibrate(5);
-                            }
-                        }
-                    };
-
-                    // Attach robust pointer events to the Parent Window
-                    win.addEventListener('pointerdown', handlePointer, {passive: false, capture: true});
-                    win.addEventListener('pointermove', handlePointer, {passive: false, capture: true});
-                    
-                    // Cleanup on lift
-                    win.addEventListener('pointerup', () => {
-                        lastTargetChar = null;
-                        const allChars = indexContainer.querySelectorAll('.index-char');
-                        allChars.forEach(c => c.classList.remove('active'));
-                    }, {passive: false});
-                });
-            })();
-        </script>
-        """, height=0, width=0)
-
-    # Call the helper
+    # Call the global helper
     render_slide_index(sorted_initials)
 
     # 3. Render content with Anchor Headers
