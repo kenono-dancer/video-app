@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.15"
+APP_VERSION = "v1.1.16"
 
 
 try:
@@ -958,7 +958,7 @@ if view_mode == "By Dancer":
         }}
     </style>
 
-    <div id="debug-log">WAITING FOR JS (v1.1.15) - CHECK TOP OF SCREEN</div>
+    <div id="debug-log">WAITING FOR JS (v1.1.16) - RETRY MODE</div>
 
     <div class="alphabet-index" id="alphabetIndex" style="touch-action: none;">
         {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char}</a>' for char in sorted_initials])}
@@ -966,88 +966,87 @@ if view_mode == "By Dancer":
     
     <script>
         (function() {{
-            const indexContainer = document.getElementById('alphabetIndex');
-            const debugLog = document.getElementById('debug-log');
-            let lastTargetChar = null;
+            // Retry Interval to catch elements if they render late
+            const checkInterval = setInterval(() => {{
+                const indexContainer = document.getElementById('alphabetIndex');
+                const debugLog = document.getElementById('debug-log');
+                
+                if (!debugLog) return; // Keep waiting
 
-            function log(msg) {{
-                if (debugLog) debugLog.innerText = msg;
-            }}
-            
-            // DIAGNOSTIC START
-            const isIframe = (window.self !== window.top);
-            const ua = navigator.userAgent;
-            const mobileCheck = /Mobi|Android/i.test(ua);
-            
-            log(`JS RUNNING (v1.1.14)\\nIframe: ${{isIframe}}\\nMob: ${{mobileCheck}}\\nWin: ${{window.innerWidth}}x${{window.innerHeight}}`);
+                // If found, clear interval and start logic
+                clearInterval(checkInterval);
 
-            // UNIVERSAL POINTER LISTENER
-            // Captures Touch AND Mouse. Logs EVERYTHING.
-            
-            const handleGlobalPointer = (e) => {{
-                // log(`Evt: ${{e.type}}`); // Uncomment for meaningful spam if needed
+                function log(msg) {{
+                     debugLog.innerText = msg;
+                }}
                 
-                const x = e.clientX;
-                const y = e.clientY;
+                const isIframe = (window.self !== window.top);
+                const ua = navigator.userAgent;
+                const mobileCheck = /Mobi|Android/i.test(ua);
                 
-                // Only log if interaction is significant or explicitly requested (too much spam hangs visual)
-                // log(`Evt: ${{e.type}}\\nX:${{x.toFixed(0)}} Y:${{y.toFixed(0)}}`);
-                
-                // Interaction Zone: Right 80px (Wider for safety)
-                const winWidth = window.innerWidth;
-                const isRightEdge = x > (winWidth - 80);
-                
-                if (isRightEdge) {{
-                    log(`ZONE ACT: ${{e.type}}\\n(${{x.toFixed(0)}},${{y.toFixed(0)}})`);
+                log(`JS READY (v1.1.16)\\nIframe: ${{isIframe}}\\nWait Time: Active`);
+
+                let lastTargetChar = null;
+
+                // UNIVERSAL POINTER LISTENER
+                const handleGlobalPointer = (e) => {{
+                    // log(`Evt: ${{e.type}}`); 
                     
-                    if(e.cancelable && e.type !== 'pointerup') {{
-                        e.preventDefault();
-                    }}
+                    const x = e.clientX;
+                    const y = e.clientY;
                     
-                    const target = document.elementFromPoint(x, y);
-                    let char = null;
-                    if (target) {{
-                        char = target.getAttribute('data-char');
-                        if (char) {{
-                             log(`HIT: ${{char}}`);
-                        }} else {{
-                             // If we hit the container or empty space, maybe scrubbing logic?
-                             // Fallback to simple height calc if elementFromPoint misses
-                             // log(`Tgt: ${{target.tagName}}`);
+                    const winWidth = window.innerWidth;
+                    const isRightEdge = x > (winWidth - 80);
+                    
+                    if (isRightEdge) {{
+                        log(`ACT: ${{e.type}}\\n(${{x.toFixed(0)}},${{y.toFixed(0)}})`);
+                        
+                        if(e.cancelable && e.type !== 'pointerup') {{
+                            e.preventDefault();
+                        }}
+                        
+                        const target = document.elementFromPoint(x, y);
+                        let char = null;
+                        if (target) {{
+                            char = target.getAttribute('data-char');
+                            if (char) {{
+                                log(`HIT: ${{char}}`);
+                            }}
+                        }}
+                        
+                        // Visuals
+                        if (indexContainer) {{
+                            const allChars = indexContainer.querySelectorAll('.index-char');
+                            allChars.forEach(c => c.classList.remove('active'));
+                            
+                            if (char && target && target.classList.contains('index-char')) {{
+                                target.classList.add('active');
+                            }}
+                        }}
+
+                        if (char && char !== lastTargetChar) {{
+                            lastTargetChar = char;
+                            const anchor = document.getElementById('anchor-' + char);
+                            if (anchor) {{
+                                anchor.scrollIntoView({{behavior: "auto", block: "start"}});
+                                if (navigator.vibrate) navigator.vibrate(5);
+                            }}
                         }}
                     }}
-                    
-                    // Visuals
-                    if (indexContainer) {{
+                }};
+
+                // Attach to Window and Document to be safe
+                window.addEventListener('pointerdown', handleGlobalPointer, {{passive: false, capture: true}});
+                window.addEventListener('pointermove', handleGlobalPointer, {{passive: false, capture: true}});
+                window.addEventListener('pointerup', (e) => {{
+                     lastTargetChar = null;
+                     if (indexContainer) {{
                         const allChars = indexContainer.querySelectorAll('.index-char');
                         allChars.forEach(c => c.classList.remove('active'));
-                        
-                        if (char && target && target.classList.contains('index-char')) {{
-                            target.classList.add('active');
-                        }}
-                    }}
-
-                    if (char && char !== lastTargetChar) {{
-                        lastTargetChar = char;
-                        const anchor = document.getElementById('anchor-' + char);
-                        if (anchor) {{
-                            anchor.scrollIntoView({{behavior: "auto", block: "start"}});
-                            if (navigator.vibrate) navigator.vibrate(5);
-                        }}
-                    }}
-                }}
-            }};
-
-            // Attach to Window and Document to be safe
-            window.addEventListener('pointerdown', handleGlobalPointer, {{passive: false, capture: true}});
-            window.addEventListener('pointermove', handleGlobalPointer, {{passive: false, capture: true}});
-            window.addEventListener('pointerup', (e) => {{
-                 lastTargetChar = null;
-                 if (indexContainer) {{
-                    const allChars = indexContainer.querySelectorAll('.index-char');
-                    allChars.forEach(c => c.classList.remove('active'));
-                 }}
-            }}, {{passive: false}});
+                     }}
+                }}, {{passive: false}});
+                
+            }}, 100); // Check every 100ms
             
         }})();
     </script>
