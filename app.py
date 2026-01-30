@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import json
 
 # APP VERSION
-APP_VERSION = "v2.0.0"
+APP_VERSION = "v2.0.2"
 
 
 try:
@@ -1066,18 +1066,18 @@ if view_mode == "By Dancer":
                 for i, row in sub_df.iterrows():
                     col1, col2 = st.columns([1, 2])
                     with col1:
-                        # Thumbnail
-                        youtube_id = row['YoutubeID']
-                        if youtube_id:
-                            st.image(f"https://img.youtube.com/vi/{youtube_id}/mqdefault.jpg", use_container_width=True)
+                        # Thumbnail from Image URL column
+                        img_url = row.get('画像URL', '')
+                        if img_url:
+                            st.image(str(img_url), use_container_width=True)
                     with col2:
                         st.write(f"**{row['曲名']}**")
                         st.write(f"イベント: {row['イベント名']}")
                         
-                        # Use simple link for now
-                        youtube_id = row['YoutubeID']
-                        url = f"https://www.youtube.com/watch?v={youtube_id}"
-                        st.markdown(f"[YouTubeで見る]({url})", unsafe_allow_html=True)
+                        # Video Link from Video URL column
+                        video_url = row.get('動画URL', '')
+                        if video_url:
+                            st.markdown(f"[YouTubeで見る]({video_url})", unsafe_allow_html=True)
 
 elif view_mode == "By Dance":
     # Sort by rank(Discipline), then by Dancer
