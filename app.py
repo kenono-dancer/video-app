@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.2"
+APP_VERSION = "v1.1.3"
 
 
 try:
@@ -942,44 +942,91 @@ if view_mode == "By Dancer":
         }}
     </style>
 
+        .alphabet-index {{
+            position: fixed;
+            right: 0px; 
+            top: 55%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            z-index: 999999;
+            background-color: rgba(20, 20, 20, 0.9);
+            border-radius: 12px 0 0 12px;
+            padding: 10px 0;
+            box-shadow: -2px 4px 10px rgba(0,0,0,0.5);
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 48px; /* Wider for easier touch */
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            touch-action: none; /* Critical for preventing browser scroll */
+        }}
+        .alphabet-index::-webkit-scrollbar {{
+            display: none;
+        }}
+        .index-char {{
+            display: block;
+            padding: 4px 0;
+            font-size: 11px;
+            color: #ddd;
+            text-align: center;
+            text-decoration: none; 
+            cursor: pointer;
+            font-weight: bold;
+            font-family: sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            width: 100%;
+        }}
+        .index-char:hover, .index-char:active {{
+            background-color: rgba(255, 255, 255, 0.1);
+        }}
+    </style>
+
     <div class="alphabet-index" id="alphabetIndex">
         {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char}</a>' for char in sorted_initials])}
     </div>
     
     <script>
-        const indexContainer = document.getElementById('alphabetIndex');
-        let lastTargetChar = null; // To prevent spamming the same anchor
-        
-        if (indexContainer) {{
-            indexContainer.addEventListener('touchmove', (e) => {{
-                // Prevent default global scroll to keep index stable
-                if (e.cancelable) e.preventDefault();
-                
-                const touch = e.touches[0];
-                const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                
-                if (target && target.classList.contains('index-char')) {{
-                    const char = target.getAttribute('data-char');
+        (function() {{
+            const indexContainer = document.getElementById('alphabetIndex');
+            let lastTargetChar = null;
+
+            if (indexContainer) {{
+                // Force prevent scrolling on the container itself
+                indexContainer.addEventListener('touchmove', (e) => {{
+                     e.preventDefault();
+                }}, {{passive: false}});
+
+                // Check touch position
+                indexContainer.addEventListener('touchmove', (e) => {{
+                    // e.preventDefault() is already handled above
+                    const touch = e.touches[0];
+                    const target = document.elementFromPoint(touch.clientX, touch.clientY);
                     
-                    // Only act if we moved to a new character
-                    if (char && char !== lastTargetChar) {{
-                        lastTargetChar = char;
+                    if (target && target.classList.contains('index-char')) {{
+                        const char = target.getAttribute('data-char');
                         
-                        // Simulate a click on the anchor tag
-                        // This triggers the native hash change and scroll behavior
-                        target.click();
-                        
-                        // Optional: Vibration feedback if available
-                        if (navigator.vibrate) navigator.vibrate(5);
+                        if (char && char !== lastTargetChar) {{
+                            lastTargetChar = char;
+                            
+                            // Direct DOM Scroll - Most robust and fast
+                            const anchor = document.getElementById('anchor-' + char);
+                            if (anchor) {{
+                                anchor.scrollIntoView({{behavior: "auto", block: "start"}});
+                                
+                                // Optional haptic
+                                if (navigator.vibrate) navigator.vibrate(5);
+                            }}
+                        }}
                     }}
-                }}
-            }}, {{passive: false}});
-            
-            // Clear lastTarget on touch end so re-tapping works
-            indexContainer.addEventListener('touchend', () => {{
-                lastTargetChar = null;
-            }});
-        }}
+                }}, {{passive: false}});
+
+                indexContainer.addEventListener('touchend', () => {{
+                    lastTargetChar = null;
+                }});
+            }}
+        }})();
     </script>
     """
     st.markdown(index_bar_html, unsafe_allow_html=True)
