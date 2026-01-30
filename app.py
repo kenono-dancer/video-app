@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.3"
+APP_VERSION = "v1.1.4"
 
 
 try:
@@ -950,16 +950,17 @@ if view_mode == "By Dancer":
             display: flex;
             flex-direction: column;
             z-index: 999999;
-            background-color: rgba(20, 20, 20, 0.9);
+            background-color: rgba(0, 0, 0, 0.3); /* More transparent */
+            backdrop-filter: blur(4px); /* Glass effect */
             border-radius: 12px 0 0 12px;
             padding: 10px 0;
-            box-shadow: -2px 4px 10px rgba(0,0,0,0.5);
+            box-shadow: -2px 4px 10px rgba(0,0,0,0.2);
             max-height: 80vh;
             overflow-y: auto;
-            width: 48px; /* Wider for easier touch */
+            width: 44px; /* Slightly narrower but still touchable */
             -ms-overflow-style: none;
             scrollbar-width: none;
-            touch-action: none; /* Critical for preventing browser scroll */
+            touch-action: none; 
         }}
         .alphabet-index::-webkit-scrollbar {{
             display: none;
