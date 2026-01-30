@@ -1,9 +1,12 @@
+```
 import streamlit as st
 import traceback
 
 try:
     import pandas as pd
     from streamlit_gsheets import GSheetsConnection
+    import streamlit.components.v1 as components
+    import unicodedata
     import ssl
     import pykakasi
     from google.oauth2 import service_account
@@ -171,8 +174,45 @@ if 'メモ' not in df.columns:
 DRIVE_FOLDER_ID = "13fNsuwfvL3TKTawp8XlXM_fuPu63F1-d"
 
 def upload_image_to_drive(file_obj, filename, folder_id=None):
-    """Uploads a file object to Google Drive and returns the direct link."""
+    """Uploads a file object to Google Drive (via API or GAS Proxy) and returns the direct link."""
     try:
+        # CHECK FOR GAS PROXY URL
+        # If user has set up the proxy, use it (Workaround B)
+        # Note: We check specifically for a secret or environment variable
+        gas_url = None
+        if "connections" in st.secrets and "gas_url" in st.secrets["connections"]:
+             gas_url = st.secrets["connections"]["gas_url"]
+        
+        if gas_url:
+            # OPTION B: GAS PROXY UPLOAD
+            import requests
+            import base64
+            
+            # Read file and encode
+            file_content = file_obj.read()
+            encoded_content = base64.b64encode(file_content).decode('utf-8')
+            file_obj.seek(0) # Reset pointer
+            
+            # Use provided folder ID or fallback
+            target_folder = folder_id if folder_id else DRIVE_FOLDER_ID
+            
+            payload = {
+                'folder_id': target_folder,
+                'filename': filename,
+                'mimeType': file_obj.type,
+                'file_content': encoded_content
+            }
+            
+            response = requests.post(gas_url, data=payload)
+            result = response.json()
+            
+            if "success" in result and result["success"]:
+                return result["url"]
+            else:
+                st.error(f"GAS Upload Error: {result.get('error', 'Unknown Error')}")
+                return None
+
+        # OPTION A: DIRECT SERVICE ACCOUNT UPLOAD (Existing Logic)
         # Load credentials from secrets
         conn_secrets = st.secrets["connections"]["gsheets"]
         creds = service_account.Credentials.from_service_account_info(
@@ -213,7 +253,7 @@ def upload_image_to_drive(file_obj, filename, folder_id=None):
     except Exception as e:
         error_msg = str(e)
         if "storageQuotaExceeded" in error_msg:
-             st.error("Drive Error: Storage Quota Exceeded. Service Accounts have 0 bytes quota. Please specify a Folder ID shared with this service account.")
+             st.error("Drive Error: Storage Quota Exceeded. Service Accounts have 0 bytes quota. Please setup GAS Proxy (Workaround B) or use a Workspace Shared Drive.")
         else:
              st.error(f"Drive Upload Error: {e}")
         return None
@@ -823,26 +863,39 @@ if view_mode == "By Dancer":
         sorted_initials.remove('#')
         sorted_initials.append('#')
 
-    # 2. Inject HTML/CSS/JS for the Index Bar
+    # 2. Inject HTML/CSS/JS for the Index Bar via Iframe (Components)
+    # This allows robust JS execution to target window.parent.document
     
-    index_bar_html = f"""
+    # Calculate height based on number of chars to fit snugly
+    # roughly 20px per char + padding
+    index_height = len(sorted_initials) * 20 + 40
+    if index_height > 600: index_height = 600
+
+    index_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
     <style>
-        .alphabet-index {{
-            position: fixed;
-            right: 0px; 
-            top: 50%;
-            transform: translateY(-40%);
+        body {{
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            z-index: 99999;
+            align-items: center;
+        }}
+        .alphabet-index {{
+            display: flex;
+            flex-direction: column;
             background-color: rgba(20, 20, 20, 0.9);
-            border-top-left-radius: 10px;
-            border-bottom-left-radius: 10px;
-            padding: 10px 2px;
-            box-shadow: -2px 2px 5px rgba(0,0,0,0.5);
-            max-height: 80vh;
+            border-radius: 12px;
+            padding: 8px 4px; /* Slightly wider */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            max-height: 95vh;
             overflow-y: auto;
-            width: 30px;
+            width: 32px;
+            
             /* Hide scrollbar */
             -ms-overflow-style: none;
             scrollbar-width: none;
@@ -851,9 +904,150 @@ if view_mode == "By Dancer":
             display: none;
         }}
         .index-char {{
-            padding: 4px 0;
+            padding: 2px 0;
             font-size: 11px;
-            color: #aaa;
+            color: #ccc;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Crucial for custom touch handling */
+        }}
+        .index-char:hover, .index-char:active, .index-char.active {{
+            color: #FF8C00;
+            transform: scale(1.4);
+        }}
+    </style>
+    </head>
+    <body>
+    <div class="alphabet-index" id="alphabetIndex">
+        {''.join([f'<div class="index-char" data-target="anchor-{char}">{char}</div>' for char in sorted_initials])}
+    </div>
+
+    <script>
+        const indexContainer = document.getElementById('alphabetIndex');
+        
+        // Helper to find parent element
+        function getParentElement(id) {{
+            // Streamlit apps are often in nested iframes, but usually window.parent.document works 
+            // if we are just one level deep (standard components).
+            // NOTE: Cross-origin restrictions might apply if Streamlit Cloud serves components from different domain.
+            // But usually simple components are same-origin or sandboxed in allowed way.
+            return window.parent.document.getElementById(id);
+        }}
+
+        function scrollTargetIntoView(targetId) {{
+            const el = getParentElement(targetId);
+            if (el) {{
+                el.scrollIntoView({{behavior: "smooth", block: "start"}});
+            }} else {{
+                console.log("Element not found:", targetId);
+            }}
+        }}
+
+        // Click
+        indexContainer.addEventListener('click', (e) => {{
+            if (e.target.classList.contains('index-char')) {{
+                const targetId = e.target.getAttribute('data-target');
+                scrollTargetIntoView(targetId);
+            }}
+        }});
+        
+        // Touch Slide (Touch Move)
+        indexContainer.addEventListener('touchmove', (e) => {{
+            e.preventDefault(); 
+            const touch = e.touches[0];
+            
+            // elementFromPoint works relative to the viewport. 
+            // Since we are in an iframe, clientX/Y are relative to the iframe.
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            
+            if (target && target.classList.contains('index-char')) {{
+                const targetId = target.getAttribute('data-target');
+                // Use 'auto' behavior for sliding to avoid lag
+                const el = getParentElement(targetId);
+                if (el) {{
+                     el.scrollIntoView({{behavior: "auto", block: "start"}});
+                }}
+            }}
+        }}, {{passive: false}});
+    </script>
+    </body>
+    </html>
+    """
+    
+    # We place this component in a sidebar or floating div?
+    # Streamlit components render in flow. To make it "Fixed", we need to inject CSS into the main app 
+    # to position this specific iframe component, OR the component itself has fixed position logic?
+    # Actually, components are iframes. We can't escape the iframe bounds easily to be "fixed" on screen 
+    # unless we use Custom CSS in the main app to position the iframe container.
+    
+    # Strategy: 
+    # 1. Custom CSS in main app to position the specific div wrapping the component.
+    #    The component wrapper usually has a class like `stHtml`.
+    #    It's risky to target generically.
+    #    Better: Put the component in the sidebar? Data is "fixed" right.
+    #    Wait, the user wants it on the RIGHT edge of screen.
+    #    Standard sidebar is Left.
+    
+    # Better Strategy (Hybrid):
+    # Use st.markdown to inject a DIV that acts as a container at fixed position.
+    # INSIDE that div, we need the scripting capability.
+    # But st.markdown script is sandboxed or ineffective for scrolling.
+    
+    # Re-evaluation:
+    # If st.markdown script CANNOT scroll parent, we are stuck.
+    # BUT, many Streamlit users use `window.parent.document` inside `st.components.v1.html`.
+    # The problem is `st.components.v1.html` creates a block in the layout flow.
+    # We want it FLOATING on the right.
+    
+    # Solution:
+    # Use `st.markdown` to Inject CSS that targets the iframe generated by `components.html`.
+    # Can we target the *last* iframe or specific iframe? Hard.
+    
+    # FASTEST Fix for "Scroll not working" in `st.markdown` approach:
+    # It might be `window.parent` is needed EVEN IN `st.markdown` if Streamlit wraps it?
+    # No, usually `st.markdown` is in the DOM.
+    # Let's try to update the Script to use `window.parent` catch-all AND `document` catch-all.
+    # AND `window.top`.
+    
+    # Let's revert to st.markdown BUT robustify the JS.
+    # Why? Component iframe positioning is a nightmare (`z-index` wars with Streamlit UI).
+    # `st.markdown` with `position: fixed` worked VISUALLY.
+    # The issue is JS execution context.
+    
+    # Let's stick to st.markdown but use `window.top` and `window.parent` and `document`.
+    
+    index_bar_html = f"""
+    <style>
+        .alphabet-index {{
+            position: fixed;
+            right: 5px; 
+            top: 55%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            z-index: 999999; /* Super high z-index */
+            background-color: rgba(20, 20, 20, 0.9);
+            border-radius: 12px;
+            padding: 8px 2px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 36px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            touch-action: none;
+        }}
+        .alphabet-index::-webkit-scrollbar {{
+            display: none;
+        }}
+        .index-char {{
+            padding: 3px 0;
+            font-size: 11px;
+            color: #ddd;
             text-align: center;
             cursor: pointer;
             font-weight: bold;
@@ -863,7 +1057,9 @@ if view_mode == "By Dancer":
         }}
         .index-char:hover, .index-char:active {{
             color: #FF8C00;
-            transform: scale(1.2);
+            transform: scale(1.3);
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
         }}
     </style>
 
@@ -872,31 +1068,54 @@ if view_mode == "By Dancer":
     </div>
 
     <script>
-        const indexContainer = document.getElementById('alphabetIndex');
-        
-        indexContainer.addEventListener('click', (e) => {{
-            if (e.target.classList.contains('index-char')) {{
-                const targetId = e.target.getAttribute('data-target');
-                const targetElement = document.getElementById(targetId);
-                if (targetElement) {{
-                    targetElement.scrollIntoView({{behavior: "smooth", block: "start"}});
+        // Use an IIFE to avoid polluting global namespace but ensure execution
+        (function() {{
+            const indexContainer = document.getElementById('alphabetIndex');
+            if (!indexContainer) return;
+
+            function getTarget(id) {{
+                // Try current document
+                let el = document.getElementById(id);
+                if (el) return el;
+                // Try parent (Streamlit Cloud often runs app in an iframe)
+                try {{
+                    if (window.parent && window.parent.document) {{
+                        el = window.parent.document.getElementById(id);
+                        if (el) return el;
+                    }}
+                }} catch(e) {{}}
+                return null;
+            }}
+
+            function scrollToId(targetId) {{
+                const el = getTarget(targetId);
+                if (el) {{
+                    el.scrollIntoView({{behavior: "auto", block: "start", inline: "nearest"}});
+                }} else {{
+                    console.log("Target not found " + targetId);
                 }}
             }}
-        }});
-        
-        indexContainer.addEventListener('touchmove', (e) => {{
-            e.preventDefault(); 
-            const touch = e.touches[0];
-            const target = document.elementFromPoint(touch.clientX, touch.clientY);
             
-            if (target && target.classList.contains('index-char')) {{
-                const targetId = target.getAttribute('data-target');
-                const targetElement = document.getElementById(targetId);
-                if (targetElement) {{
-                    targetElement.scrollIntoView({{behavior: "auto", block: "start"}});
+            // Pointer Down / Click
+            indexContainer.addEventListener('click', (e) => {{
+                if (e.target.classList.contains('index-char')) {{
+                    const targetId = e.target.getAttribute('data-target');
+                    scrollToId(targetId);
                 }}
-            }}
-        }}, {{passive: false}});
+            }});
+            
+            // Touch Move (Slide)
+            indexContainer.addEventListener('touchmove', (e) => {{
+                e.preventDefault(); 
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                
+                if (target && target.classList.contains('index-char')) {{
+                    const targetId = target.getAttribute('data-target');
+                    scrollToId(targetId);
+                }}
+            }}, {{passive: false}});
+        }})();
     </script>
     """
     st.markdown(index_bar_html, unsafe_allow_html=True)
