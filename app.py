@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import json
 
 # APP VERSION
-APP_VERSION = "v2.2.0"
+APP_VERSION = "v2.2.1"
 
 
 try:
@@ -308,6 +308,10 @@ def get_initial_from_text(text):
     """Extracts the first letter (initial) from text, converting Kanji to Romaji if needed."""
     if not text: return "?"
     
+    # Ensure text is string (Handle NaN or numbers)
+    text = str(text)
+    if not text: return "?"
+
     # 1. Try PyKakasi (Japanese)
     try:
         kks = kakasi() 
@@ -326,9 +330,13 @@ def get_initial_from_text(text):
             pass
     
     # Fallback
-    first_char = text[0].upper()
-    if first_char.isalpha():
-        return first_char
+    try:
+        first_char = text[0].upper()
+        if first_char.isalpha():
+            return first_char
+    except Exception:
+        pass
+        
     return "#"
 
 # Define reusable function for Slide Index
