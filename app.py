@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.8"
+APP_VERSION = "v1.1.9"
 
 
 try:
@@ -888,6 +888,8 @@ if view_mode == "By Dancer":
     # Note: Streamlit might need 'javascript:void(0)' workaround or just standard hashes.
     # Standard hashes usually work if the ID exists in the DOM.
     
+    # Define JSON for JS injection
+    chars_json = json.dumps(sorted_initials)
     index_bar_html = f"""
     <style>
         .alphabet-index {{
