@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.9"
+APP_VERSION = "v1.1.10"
 
 
 try:
@@ -894,28 +894,30 @@ if view_mode == "By Dancer":
     <style>
         .alphabet-index {{
             position: fixed;
-            right: 5px; 
+            right: 0px; 
             top: 55%;
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
             z-index: 999999;
-            background-color: rgba(20, 20, 20, 0.9);
-            border-radius: 12px;
-            padding: 8px 2px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            background-color: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            border-radius: 12px 0 0 12px;
+            padding: 10px 0;
+            box-shadow: -2px 4px 10px rgba(0,0,0,0.2);
             max-height: 80vh;
             overflow-y: auto;
-            width: 36px;
+            width: 50px; /* Wider check */
             -ms-overflow-style: none;
             scrollbar-width: none;
+            touch-action: none !important; 
         }}
         .alphabet-index::-webkit-scrollbar {{
             display: none;
         }}
         .index-char {{
             display: block;
-            flex: 1; /* Distribute height evenly */
+            flex: 1; 
             font-size: 11px;
             color: #ddd;
             text-align: center;
@@ -930,16 +932,31 @@ if view_mode == "By Dancer":
             align-items: center;
             justify-content: center;
         }}
-        .index-char:hover, .index-char:active {{
-            background-color: rgba(255, 255, 255, 0.1);
-        }}
         .index-char.active {{
             background-color: rgba(255, 140, 0, 0.6) !important;
             color: white !important;
             transform: scale(1.3);
             border-radius: 50%;
         }}
+        /* DEBUG OVERLAY */
+        #debug-log {{
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: lime;
+            font-family: monospace;
+            z-index: 1000000;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            max-width: 200px;
+            white-space: pre-wrap;
+        }}
     </style>
+
+    <div id="debug-log">Debug Log Initialized</div>
 
     <div class="alphabet-index" id="alphabetIndex" style="touch-action: none;">
         {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char}</a>' for char in sorted_initials])}
@@ -948,44 +965,52 @@ if view_mode == "By Dancer":
     <script>
         (function() {{
             const indexContainer = document.getElementById('alphabetIndex');
-            const chars = {chars_json};
+            const debugLog = document.getElementById('debug-log');
             let lastTargetChar = null;
 
+            function log(msg) {{
+                if (debugLog) debugLog.innerText = msg;
+            }}
+
             if (indexContainer) {{
-                // Robust Scrubbing Logic
+                // Logic: elementFromPoint
                 const handleTouch = (e) => {{
                     if(e.cancelable) e.preventDefault();
                     
                     const touch = e.touches[0];
-                    const rect = indexContainer.getBoundingClientRect();
+                    const x = touch.clientX;
+                    const y = touch.clientY;
                     
-                    // Check bounds
-                    if (touch.clientX < rect.left - 50 || touch.clientX > rect.right + 50) return;
+                    // Element logic
+                    // We might need to hide the finger/feedback to see what's under?
+                    // Usually elementFromPoint works fine if the finger doesn't block it (it might return the container)
                     
-                    // Calculate index based on Y position
-                    const relativeY = touch.clientY - rect.top;
-                    const totalHeight = rect.height;
-                    const charCount = chars.length;
+                    const target = document.elementFromPoint(x, y);
+                    let char = null;
                     
-                    // Height per char (virtual)
-                    // Ensure we clamp index to valid range
-                    let index = Math.floor((relativeY / totalHeight) * charCount);
-                    index = Math.max(0, Math.min(index, charCount - 1));
-                    
-                    const char = chars[index];
-                    
+                    if (target) {{
+                        char = target.getAttribute('data-char');
+                        // If we hit the container, maybe try to calculate? 
+                        // But let's see what the log says first.
+                        log(`X:${{x.toFixed(0)}} Y:${{y.toFixed(0)}} \\nTgt: ${{target.tagName}} .${{target.className}} \\nChar: ${{char || 'None'}}`);
+                    }} else {{
+                        log(`X:${{x.toFixed(0)}} Y:${{y.toFixed(0)}} \\nTgt: NULL`);
+                    }}
+
                     // Visual Highlighting
                     const allChars = indexContainer.querySelectorAll('.index-char');
                     allChars.forEach(c => c.classList.remove('active'));
                     
-                    // Highlight the calculated index's element
-                    if (allChars[index]) {{
-                        allChars[index].classList.add('active');
+                    if (char) {{
+                        // Find the element for this char just to be safe/consistent
+                        // (target might be it, or a child)
+                        if (target.classList.contains('index-char')) {{
+                             target.classList.add('active');
+                        }}
                     }}
 
                     if (char && char !== lastTargetChar) {{
                         lastTargetChar = char;
-                        
                         const anchor = document.getElementById('anchor-' + char);
                         if (anchor) {{
                             anchor.scrollIntoView({{behavior: "auto", block: "start"}});
@@ -1006,11 +1031,7 @@ if view_mode == "By Dancer":
                     lastTargetChar = null;
                     const allChars = indexContainer.querySelectorAll('.index-char');
                     allChars.forEach(c => c.classList.remove('active'));
-                }});
-                
-                // Keep Click for mouse users as fallback
-                indexContainer.addEventListener('click', (e) => {{
-                    // Native anchor behavior is fine
+                    // log("Touch End");
                 }});
             }}
         }})();
