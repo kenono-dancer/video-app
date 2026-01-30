@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.0"
+APP_VERSION = "v1.1.1"
 
 
 try:
@@ -30,6 +30,9 @@ try:
     # Footer (Version & Reload)
     # -----------------------------------------------------------------------------
     st.sidebar.markdown("---")
+    # Add spacing to avoid overlap with Streamlit branding
+    st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+    
     st.sidebar.markdown(f"**App Version:** `{APP_VERSION}`")
     if st.sidebar.button("🔄 Force Reload"):
         st.cache_data.clear()
@@ -939,9 +942,29 @@ if view_mode == "By Dancer":
         }}
     </style>
 
-    <div class="alphabet-index">
-        {''.join([f'<a class="index-char" href="#anchor-{char}">{char}</a>' for char in sorted_initials])}
+    <div class="alphabet-index" id="alphabetIndex">
+        {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char}</a>' for char in sorted_initials])}
     </div>
+    
+    <script>
+        const indexContainer = document.getElementById('alphabetIndex');
+        if (indexContainer) {{
+            indexContainer.addEventListener('touchmove', (e) => {{
+                e.preventDefault(); // Prevent default scroll
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (target && target.classList.contains('index-char')) {{
+                    // Trigger click or hash change
+                    // 'click()' might be throttled or ignored during touchmove in some browsers
+                    // Changing hash directly is reliable
+                    const href = target.getAttribute('href');
+                    if (href && window.location.hash !== href) {{
+                         window.location.hash = href;
+                    }}
+                }}
+            }}, {{passive: false}});
+        }}
+    </script>
     """
     st.markdown(index_bar_html, unsafe_allow_html=True)
 
