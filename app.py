@@ -1076,53 +1076,63 @@ if view_mode == "By Dancer":
     </div>
 
     <script>
-        // Use an IIFE to avoid polluting global namespace but ensure execution
+        // Simplified and Robust Scroll Logic
         (function() {{
             const indexContainer = document.getElementById('alphabetIndex');
-            if (!indexContainer) return;
 
             function getTarget(id) {{
-                // Try current document
+                // 1. Try directly in current document
                 let el = document.getElementById(id);
                 if (el) return el;
-                // Try parent (Streamlit Cloud often runs app in an iframe)
+                
+                // 2. Try in parent document (iframe scenario)
                 try {{
                     if (window.parent && window.parent.document) {{
                         el = window.parent.document.getElementById(id);
                         if (el) return el;
                     }}
-                }} catch(e) {{}}
+                }} catch(e) {{
+                    console.error("Access to parent blocked:", e);
+                }}
+                
+                // 3. Try searching all frames (if accessible)
                 return null;
             }}
 
             function scrollToId(targetId) {{
                 const el = getTarget(targetId);
                 if (el) {{
-                    el.scrollIntoView({{behavior: "auto", block: "start", inline: "nearest"}});
+                    el.scrollIntoView({{behavior: "smooth", block: "start"}});
                 }} else {{
-                    console.log("Target not found " + targetId);
+                    console.log("Target not found: " + targetId);
                 }}
             }}
             
             // Pointer Down / Click
-            indexContainer.addEventListener('click', (e) => {{
-                if (e.target.classList.contains('index-char')) {{
-                    const targetId = e.target.getAttribute('data-target');
-                    scrollToId(targetId);
-                }}
-            }});
-            
-            // Touch Move (Slide)
-            indexContainer.addEventListener('touchmove', (e) => {{
-                e.preventDefault(); 
-                const touch = e.touches[0];
-                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (indexContainer) {{
+                indexContainer.addEventListener('click', (e) => {{
+                    if (e.target.classList.contains('index-char')) {{
+                        const targetId = e.target.getAttribute('data-target');
+                        scrollToId(targetId);
+                    }}
+                }});
                 
-                if (target && target.classList.contains('index-char')) {{
-                    const targetId = target.getAttribute('data-target');
-                    scrollToId(targetId);
-                }}
-            }}, {{passive: false}});
+                // Touch Move (Slide)
+                indexContainer.addEventListener('touchmove', (e) => {{
+                    e.preventDefault(); 
+                    const touch = e.touches[0];
+                    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                    
+                    if (target && target.classList.contains('index-char')) {{
+                        const targetId = target.getAttribute('data-target');
+                        const el = getTarget(targetId);
+                        if (el) {{ 
+                             // Auto behavior is faster for sliding
+                             el.scrollIntoView({{behavior: "auto", block: "start"}}); 
+                        }}
+                    }}
+                }}, {{passive: false}});
+            }}
         }})();
     </script>
     """
