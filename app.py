@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.5"
+APP_VERSION = "v1.1.6"
 
 
 try:
@@ -26,17 +26,6 @@ try:
     else:
         ssl._create_default_https_context = _create_unverified_https_context
 
-    # -----------------------------------------------------------------------------
-    # Footer (Version & Reload)
-    # -----------------------------------------------------------------------------
-    st.sidebar.markdown("---")
-    # Add spacing to avoid overlap with Streamlit branding
-    st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-    
-    st.sidebar.markdown(f"**App Version:** `{APP_VERSION}`")
-    if st.sidebar.button("🔄 Force Reload"):
-        st.cache_data.clear()
-        st.rerun()
 
 # End of Main Logic
 except Exception as e:
@@ -1135,5 +1124,17 @@ with col_ref2:
         st.cache_data.clear()
         st.rerun()
 
-# Footer Component
-st.markdown('<div class="footer">ITxDancer by Ken Ono | v1.2</div>', unsafe_allow_html=True)
+# Footer Component (Visible at bottom of main content)
+st.markdown(f'<div class="footer">ITxDancer by Ken Ono | {APP_VERSION}</div>', unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# SIDEBAR Footer (Version & Reload) - Moved to End to be at Bottom
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("---")
+# Add spacing to avoid overlap with Streamlit branding
+st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+
+st.sidebar.markdown(f"**App Version:** `{APP_VERSION}`")
+if st.sidebar.button("🔄 Force Reload", key="sidebar_footer_reload"):
+    st.cache_data.clear()
+    st.rerun()
