@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.4"
+APP_VERSION = "v1.1.5"
 
 
 try:
@@ -931,19 +931,6 @@ if view_mode == "By Dancer":
             cursor: pointer;
             font-weight: bold;
             font-family: sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
-        }}
-        .index-char:hover, .index-char:active {{
-            color: #FF8C00;
-            transform: scale(1.3);
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-        }}
-    </style>
-
-        .alphabet-index {{
-            position: fixed;
             right: 0px; 
             top: 55%;
             transform: translateY(-50%);
