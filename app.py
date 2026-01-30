@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import json
 
 # APP VERSION
-APP_VERSION = "v1.1.17"
+APP_VERSION = "v2.0.0"
 
 
 try:
@@ -881,208 +881,203 @@ if view_mode == "By Dancer":
         dancer_groups[initial].append(dancer)
         
     sorted_initials = sorted(dancer_groups.keys())
-    # Ensure '#' is last
-    if '#' in sorted_initials:
-        sorted_initials.remove('#')
-        sorted_initials.append('#')
-
-    # 2. Inject HTML/CSS for the Index Bar (PURE CSS/HTML ANCHOR VERSION)
-    # Using standard ID anchors. 
-    # Note: Streamlit might need 'javascript:void(0)' workaround or just standard hashes.
-    # Standard hashes usually work if the ID exists in the DOM.
+    # ==========================================
+    # 5. ALPHABET INDEX (Global Helper) v2.0.0
+    # ==========================================
+    # Generates a fixed-position alphabet index on the right side.
+    # Uses Streamlit Components to inject JavaScript into the parent window
+    # for robust "Slide-to-Scroll" functionality.
     
-    # Define JSON for JS injection
-    chars_json = json.dumps(sorted_initials)
-    index_bar_html = f"""
+    # CSS for the Index Bar (Glassmorphism)
+    index_bar_css = f"""
     <style>
         .alphabet-index {{
             position: fixed;
-            right: 0px; 
+            right: 10px; 
             top: 55%;
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
             z-index: 999999;
-            background-color: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(4px);
-            border-radius: 12px 0 0 12px;
-            padding: 10px 0;
-            box-shadow: -2px 4px 10px rgba(0,0,0,0.2);
+            background-color: rgba(20, 20, 20, 0.6); /* Darker, more premium */
+            backdrop-filter: blur(8px);
+            border-radius: 16px; /* Pill shape */
+            padding: 12px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             max-height: 80vh;
             overflow-y: auto;
-            width: 50px; /* Wider check */
+            width: 44px;
             -ms-overflow-style: none;
             scrollbar-width: none;
-            touch-action: none !important; 
+            touch-action: none !important; /* Prevent default touch scrolling */
         }}
         .alphabet-index::-webkit-scrollbar {{
             display: none;
         }}
         .index-char {{
-            display: block;
-            flex: 1; 
-            font-size: 11px;
-            color: #ddd;
-            text-align: center;
-            text-decoration: none; 
-            cursor: pointer;
-            font-weight: bold;
-            font-family: sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
-            width: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex: 1; 
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none; 
+            cursor: pointer;
+            font-weight: 600;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            width: 100%;
+            height: 24px; /* Fixed height for consistency */
+            transition: all 0.1s ease;
+        }}
+        .index-char:hover {{
+             color: white;
+             transform: scale(1.1);
         }}
         .index-char.active {{
-            background-color: rgba(255, 140, 0, 0.6) !important;
+            background-color: #FF8C00; /* Premium Orange */
             color: white !important;
-            transform: scale(1.3);
+            transform: scale(1.4);
             border-radius: 50%;
-        }}
-        /* DEBUG OVERLAY - LOUD MODE */
-        #debug-log {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: auto;
-            background: rgba(255, 0, 0, 0.9);
-            color: white;
+            box-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
             font-weight: bold;
-            font-family: sans-serif;
-            z-index: 2147483647; /* Max Z-Index */
-            padding: 10px;
-            font-size: 16px;
-            pointer-events: none;
-            border-bottom: 3px solid yellow;
-            text-align: center;
         }}
     </style>
 
-    <div id="debug-log">WAITING FOR JS (v1.1.17) - COMPONENT MODE</div>
-
-    <div class="alphabet-index" id="alphabetIndex" style="touch-action: none;">
+    <div class="alphabet-index" id="alphabetIndex">
         {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char}</a>' for char in sorted_initials])}
     </div>
     """
-    st.markdown(index_bar_html, unsafe_allow_html=True)
+    
+    # Inject HTML/CSS
+    st.markdown(index_bar_css, unsafe_allow_html=True)
 
-    # 4. Inject JS via Component to escape Sandbox
+    # Inject JavaScript logic via Component (Escapes Iframe Sandbox)
     components.html("""
     <script>
         (function() {
-            // Target the PARENT document (where the Streamlit app lives)
+            // Target the PARENT document (Main App Window)
             const parentDoc = window.parent.document;
             const win = window.parent;
             
-            // Log function targeting the parent's debug div
-            function log(msg) {
-                const debugLog = parentDoc.getElementById('debug-log');
-                if (debugLog) debugLog.innerText = msg;
-            }
+            // Helper to find the index container in the parent
+            // We use a retry in case it hasn't rendered yet
+            const waitForElement = (selector, callback) => {
+                const interval = setInterval(() => {
+                    const el = parentDoc.querySelector(selector);
+                    if (el) {
+                        clearInterval(interval);
+                        callback(el);
+                    }
+                }, 100);
+            };
 
-            // Verify access
-            try {
-                const accessCheck = window.parent.location.href;
-                log("JS INJECTED (v1.1.17) - ACCESS OK");
-            } catch(e) {
-                console.error(e);
-                // If we can't write to the log, we can't do anything... 
-                // but let's try to write to the iframe body just in case developer console is open
-                document.body.innerText = "CORS ERROR: Cannot access parent window.";
-                return;
-            }
+            waitForElement('#alphabetIndex', (indexContainer) => {
+                let lastTargetChar = null;
 
-            const indexContainer = parentDoc.getElementById('alphabetIndex');
+                const handlePointer = (e) => {
+                    const x = e.clientX;
+                    const y = e.clientY;
 
-            let lastTargetChar = null;
+                    // Interaction Zone Logic
+                    // Only activate if we are interacting with the Index Bar area
+                    // We check if the touch X is within the rightmost 60px
+                    const winWidth = win.innerWidth;
+                    const isZone = x > (winWidth - 70);
 
-            // UNIVERSAL POINTER LISTENER on Parent Window
-            const handleGlobalPointer = (e) => {
-                const x = e.clientX;
-                const y = e.clientY;
-                
-                const winWidth = win.innerWidth;
-                const isRightEdge = x > (winWidth - 80);
-                
-                if (isRightEdge) {
-                    log(`ACT (v1.1.17): ${e.type}\n(${x.toFixed(0)},${y.toFixed(0)})`);
-                    
-                    if(e.cancelable && e.type !== 'pointerup') {
+                    if (!isZone) return;
+
+                    // Prevent Default Scroll handling by browser
+                    // but ONLY if we are in the zone
+                    if (e.cancelable && e.type !== 'pointerup') {
                         e.preventDefault();
                     }
-                    
-                    // elementFromPoint must be called on the PARENT document
+
+                    // Find element at coordinates
+                    // Must use parentDoc because the elements are in the parent window
                     const target = parentDoc.elementFromPoint(x, y);
+
                     let char = null;
                     if (target) {
+                        // Check if we hit a char directly
                         char = target.getAttribute('data-char');
-                        if (char) {
-                            log(`HIT: ${char}`);
-                        }
-                    }
-                    
-                    // Visuals
-                    if (indexContainer) {
-                        const allChars = indexContainer.querySelectorAll('.index-char');
-                        allChars.forEach(c => c.classList.remove('active'));
-                        
-                        if (char && target && target.classList.contains('index-char')) {
-                            target.classList.add('active');
-                        }
                     }
 
+                    // Visual Feedback
+                    const allChars = indexContainer.querySelectorAll('.index-char');
+                    allChars.forEach(c => c.classList.remove('active'));
+                    
+                    if (char) {
+                        const targetEl = parentDoc.querySelector(`.index-char[data-char="${char}"]`);
+                        if (targetEl) targetEl.classList.add('active');
+                    }
+
+                    // Scroll Logic
                     if (char && char !== lastTargetChar) {
                         lastTargetChar = char;
                         const anchor = parentDoc.getElementById('anchor-' + char);
                         if (anchor) {
                             anchor.scrollIntoView({behavior: "auto", block: "start"});
+                            
+                            // Haptic Feedback
                             if (win.navigator.vibrate) win.navigator.vibrate(5);
                         }
                     }
-                }
-            };
+                };
 
-            // Attach listeners to PARENT window
-            win.addEventListener('pointerdown', handleGlobalPointer, {passive: false, capture: true});
-            win.addEventListener('pointermove', handleGlobalPointer, {passive: false, capture: true});
-            win.addEventListener('pointerup', (e) => {
-                 lastTargetChar = null;
-                 if (indexContainer) {
+                // Attach robust pointer events to the Parent Window
+                // We use 'window' to capture dragging even if pixel awareness drifts slightly
+                win.addEventListener('pointerdown', handlePointer, {passive: false, capture: true});
+                win.addEventListener('pointermove', handlePointer, {passive: false, capture: true});
+                
+                // Cleanup on lift
+                win.addEventListener('pointerup', () => {
+                    lastTargetChar = null;
                     const allChars = indexContainer.querySelectorAll('.index-char');
                     allChars.forEach(c => c.classList.remove('active'));
-                 }
-            }, {passive: false});
-
+                    // Optional: Snap effect or cleanup
+                }, {passive: false});
+            });
         })();
     </script>
     """, height=0, width=0)
 
     # 3. Render content with Anchor Headers
     for initial in sorted_initials:
-        # Initial Header with Anchor
-        st.markdown(f"""
-            <div id="anchor-{initial}" style="
-                padding-top: 60px; 
-                margin-top: -30px; 
-                border-bottom: 2px solid #444; 
-                margin-bottom: 10px;
-                font-size: 18px; 
-                font-weight: bold; 
-                color: #FF8C00;">
-                {initial}
-            </div>
-            """, unsafe_allow_html=True)
-            
+        # Invisible anchor for scrolling (offset for sticky header/spacing)
+        st.markdown(f"<div id='anchor-{initial}' style='position: relative; top: -80px; visibility: hidden;'></div>", unsafe_allow_html=True)
+        
+        # Visible Header
+        st.markdown(f"### {initial}")
+        
         current_group = dancer_groups[initial]
         
+        # Display Dancers in Expanders
         for dancer in current_group:
             with st.expander(f"{dancer}", expanded=False):
                 # Filter original DF by dancer to get videos
                 sub_df = filtered_df[filtered_df['ダンサー'] == dancer]
-                render_video_grid(sub_df)
+                
+                if sub_df.empty:
+                    st.write("No videos found.")
+                    continue
+
+                for i, row in sub_df.iterrows():
+                    col1, col2 = st.columns([1, 2])
+                    with col1:
+                        # Thumbnail
+                        youtube_id = row['YoutubeID']
+                        if youtube_id:
+                            st.image(f"https://img.youtube.com/vi/{youtube_id}/mqdefault.jpg", use_container_width=True)
+                    with col2:
+                        st.write(f"**{row['曲名']}**")
+                        st.write(f"イベント: {row['イベント名']}")
+                        
+                        # Use simple link for now
+                        youtube_id = row['YoutubeID']
+                        url = f"https://www.youtube.com/watch?v={youtube_id}"
+                        st.markdown(f"[YouTubeで見る]({url})", unsafe_allow_html=True)
 
 elif view_mode == "By Dance":
     # Sort by rank(Discipline), then by Dancer
