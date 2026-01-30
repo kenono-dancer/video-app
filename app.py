@@ -1,8 +1,11 @@
 import streamlit as st
 import traceback
+import pandas as pd
+import streamlit.components.v1 as components
+import json
 
 # APP VERSION
-APP_VERSION = "v1.1.16"
+APP_VERSION = "v1.1.17"
 
 
 try:
@@ -958,100 +961,104 @@ if view_mode == "By Dancer":
         }}
     </style>
 
-    <div id="debug-log">WAITING FOR JS (v1.1.16) - RETRY MODE</div>
+    <div id="debug-log">WAITING FOR JS (v1.1.17) - COMPONENT MODE</div>
 
     <div class="alphabet-index" id="alphabetIndex" style="touch-action: none;">
         {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char}</a>' for char in sorted_initials])}
     </div>
-    
-    <script>
-        (function() {{
-            // Retry Interval to catch elements if they render late
-            const checkInterval = setInterval(() => {{
-                const indexContainer = document.getElementById('alphabetIndex');
-                const debugLog = document.getElementById('debug-log');
-                
-                if (!debugLog) return; // Keep waiting
-
-                // If found, clear interval and start logic
-                clearInterval(checkInterval);
-
-                function log(msg) {{
-                     debugLog.innerText = msg;
-                }}
-                
-                const isIframe = (window.self !== window.top);
-                const ua = navigator.userAgent;
-                const mobileCheck = /Mobi|Android/i.test(ua);
-                
-                log(`JS READY (v1.1.16)\\nIframe: ${{isIframe}}\\nWait Time: Active`);
-
-                let lastTargetChar = null;
-
-                // UNIVERSAL POINTER LISTENER
-                const handleGlobalPointer = (e) => {{
-                    // log(`Evt: ${{e.type}}`); 
-                    
-                    const x = e.clientX;
-                    const y = e.clientY;
-                    
-                    const winWidth = window.innerWidth;
-                    const isRightEdge = x > (winWidth - 80);
-                    
-                    if (isRightEdge) {{
-                        log(`ACT: ${{e.type}}\\n(${{x.toFixed(0)}},${{y.toFixed(0)}})`);
-                        
-                        if(e.cancelable && e.type !== 'pointerup') {{
-                            e.preventDefault();
-                        }}
-                        
-                        const target = document.elementFromPoint(x, y);
-                        let char = null;
-                        if (target) {{
-                            char = target.getAttribute('data-char');
-                            if (char) {{
-                                log(`HIT: ${{char}}`);
-                            }}
-                        }}
-                        
-                        // Visuals
-                        if (indexContainer) {{
-                            const allChars = indexContainer.querySelectorAll('.index-char');
-                            allChars.forEach(c => c.classList.remove('active'));
-                            
-                            if (char && target && target.classList.contains('index-char')) {{
-                                target.classList.add('active');
-                            }}
-                        }}
-
-                        if (char && char !== lastTargetChar) {{
-                            lastTargetChar = char;
-                            const anchor = document.getElementById('anchor-' + char);
-                            if (anchor) {{
-                                anchor.scrollIntoView({{behavior: "auto", block: "start"}});
-                                if (navigator.vibrate) navigator.vibrate(5);
-                            }}
-                        }}
-                    }}
-                }};
-
-                // Attach to Window and Document to be safe
-                window.addEventListener('pointerdown', handleGlobalPointer, {{passive: false, capture: true}});
-                window.addEventListener('pointermove', handleGlobalPointer, {{passive: false, capture: true}});
-                window.addEventListener('pointerup', (e) => {{
-                     lastTargetChar = null;
-                     if (indexContainer) {{
-                        const allChars = indexContainer.querySelectorAll('.index-char');
-                        allChars.forEach(c => c.classList.remove('active'));
-                     }}
-                }}, {{passive: false}});
-                
-            }}, 100); // Check every 100ms
-            
-        }})();
-    </script>
     """
     st.markdown(index_bar_html, unsafe_allow_html=True)
+
+    # 4. Inject JS via Component to escape Sandbox
+    components.html("""
+    <script>
+        (function() {
+            // Target the PARENT document (where the Streamlit app lives)
+            const parentDoc = window.parent.document;
+            const win = window.parent;
+            
+            // Log function targeting the parent's debug div
+            function log(msg) {
+                const debugLog = parentDoc.getElementById('debug-log');
+                if (debugLog) debugLog.innerText = msg;
+            }
+
+            // Verify access
+            try {
+                const accessCheck = window.parent.location.href;
+                log("JS INJECTED (v1.1.17) - ACCESS OK");
+            } catch(e) {
+                console.error(e);
+                // If we can't write to the log, we can't do anything... 
+                // but let's try to write to the iframe body just in case developer console is open
+                document.body.innerText = "CORS ERROR: Cannot access parent window.";
+                return;
+            }
+
+            const indexContainer = parentDoc.getElementById('alphabetIndex');
+
+            let lastTargetChar = null;
+
+            // UNIVERSAL POINTER LISTENER on Parent Window
+            const handleGlobalPointer = (e) => {
+                const x = e.clientX;
+                const y = e.clientY;
+                
+                const winWidth = win.innerWidth;
+                const isRightEdge = x > (winWidth - 80);
+                
+                if (isRightEdge) {
+                    log(`ACT (v1.1.17): ${e.type}\n(${x.toFixed(0)},${y.toFixed(0)})`);
+                    
+                    if(e.cancelable && e.type !== 'pointerup') {
+                        e.preventDefault();
+                    }
+                    
+                    // elementFromPoint must be called on the PARENT document
+                    const target = parentDoc.elementFromPoint(x, y);
+                    let char = null;
+                    if (target) {
+                        char = target.getAttribute('data-char');
+                        if (char) {
+                            log(`HIT: ${char}`);
+                        }
+                    }
+                    
+                    // Visuals
+                    if (indexContainer) {
+                        const allChars = indexContainer.querySelectorAll('.index-char');
+                        allChars.forEach(c => c.classList.remove('active'));
+                        
+                        if (char && target && target.classList.contains('index-char')) {
+                            target.classList.add('active');
+                        }
+                    }
+
+                    if (char && char !== lastTargetChar) {
+                        lastTargetChar = char;
+                        const anchor = parentDoc.getElementById('anchor-' + char);
+                        if (anchor) {
+                            anchor.scrollIntoView({behavior: "auto", block: "start"});
+                            if (win.navigator.vibrate) win.navigator.vibrate(5);
+                        }
+                    }
+                }
+            };
+
+            // Attach listeners to PARENT window
+            win.addEventListener('pointerdown', handleGlobalPointer, {passive: false, capture: true});
+            win.addEventListener('pointermove', handleGlobalPointer, {passive: false, capture: true});
+            win.addEventListener('pointerup', (e) => {
+                 lastTargetChar = null;
+                 if (indexContainer) {
+                    const allChars = indexContainer.querySelectorAll('.index-char');
+                    allChars.forEach(c => c.classList.remove('active'));
+                 }
+            }, {passive: false});
+
+        })();
+    </script>
+    """, height=0, width=0)
 
     # 3. Render content with Anchor Headers
     for initial in sorted_initials:
