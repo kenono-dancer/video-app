@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.11"
+APP_VERSION = "v1.1.12"
 
 
 try:
@@ -972,42 +972,56 @@ if view_mode == "By Dancer":
                 if (debugLog) debugLog.innerText = msg;
             }}
 
-            // GLOBAL LISTENER STRATEGY
-            // Attach to document to catch everything, filter by coordinates
+    <script>
+        (function() {{
+            const indexContainer = document.getElementById('alphabetIndex');
+            const debugLog = document.getElementById('debug-log');
+            let lastTargetChar = null;
+
+            function log(msg) {{
+                if (debugLog) debugLog.innerText = msg;
+            }}
             
-            const handleGlobalTouch = (e) => {{
-                const touch = e.touches[0];
-                const x = touch.clientX;
-                const y = touch.clientY;
-                const winWidth = window.innerWidth;
+            // Initialization Log
+            log(`Init v1.1.12\\nWin: ${{window.innerWidth}}x${{window.innerHeight}}`);
+
+            // UNIVERSAL POINTER LISTENER
+            // Captures Touch AND Mouse. Logs EVERYTHING.
+            
+            const handleGlobalPointer = (e) => {{
+                const x = e.clientX;
+                const y = e.clientY;
+                const type = e.type;
                 
-                // Interaction Zone: Right 60px
+                // ALWAYS LOG
+                log(`Evt: ${{type}}\\nX:${{x.toFixed(0)}} Y:${{y.toFixed(0)}}`);
+                
+                // Only process interaction if near right edge (e.g., last 60px)
+                const winWidth = window.innerWidth;
                 const isRightEdge = x > (winWidth - 60);
                 
-                // Debug logging for ALL touches to verify listener works
-                // log(`Global Touch: ${{x.toFixed(0)}}, ${{y.toFixed(0)}} (Right:${{isRightEdge}})`);
+                if (!isRightEdge) return; 
+
+                // Prevent Default (Scroll) only if in zone
+                if(e.cancelable && e.type !== 'pointerup') {{
+                    e.preventDefault();
+                }}
                 
-                if (!isRightEdge) return; // Allow normal scrolling elsewhere
-                
-                // If in zone, prevent default scroll
-                if(e.cancelable) e.preventDefault();
-                
-                // Logic: elementFromPoint or Coordinate Scrub
-                // Let's try elementFromPoint first as it's cleaner if elements exist
+                // Scrub Logic
                 const target = document.elementFromPoint(x, y);
                 let char = null;
                 
                 if (target) {{
                      char = target.getAttribute('data-char');
-                     log(`Hit: ${{char}} (X:${{x.toFixed(0)}})`);
+                     if (char) log(`HIT: ${{char}}`);
                 }}
                 
-                // Visual Feedback
+                // Visuals
                 if (indexContainer) {{
                     const allChars = indexContainer.querySelectorAll('.index-char');
                     allChars.forEach(c => c.classList.remove('active'));
                     
-                    if (char && target.classList.contains('index-char')) {{
+                    if (char && target && target.classList.contains('index-char')) {{
                         target.classList.add('active');
                     }}
                 }}
@@ -1022,21 +1036,21 @@ if view_mode == "By Dancer":
                 }}
             }};
 
-            // Attach to document with capture phase to ensure we get it first
-            document.addEventListener('touchstart', handleGlobalTouch, {{passive: false, capture: true}});
-            document.addEventListener('touchmove', handleGlobalTouch, {{passive: false, capture: true}});
-            
-            // Clean up on end
-            document.addEventListener('touchend', () => {{
-                lastTargetChar = null;
-                if (indexContainer) {{
+            // Pointer Events are better than Touch events
+            document.addEventListener('pointerdown', handleGlobalPointer, {{passive: false, capture: true}});
+            document.addEventListener('pointermove', handleGlobalPointer, {{passive: false, capture: true}});
+            document.addEventListener('pointerup', (e) => {{
+                 lastTargetChar = null;
+                 if (indexContainer) {{
                     const allChars = indexContainer.querySelectorAll('.index-char');
                     allChars.forEach(c => c.classList.remove('active'));
-                }}
-            }});
+                 }}
+                 // log("Lift");
+            }}, {{passive: false}});
             
         }})();
     </script>
+    """
     """
     st.markdown(index_bar_html, unsafe_allow_html=True)
 
