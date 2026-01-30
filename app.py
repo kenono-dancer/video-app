@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.13"
+APP_VERSION = "v1.1.14"
 
 
 try:
@@ -971,81 +971,80 @@ if view_mode == "By Dancer":
             function log(msg) {{
                 if (debugLog) debugLog.innerText = msg;
             }}
-
-    <script>
-        (function() {{
-            const indexContainer = document.getElementById('alphabetIndex');
-            const debugLog = document.getElementById('debug-log');
-            let lastTargetChar = null;
-
-            function log(msg) {{
-                if (debugLog) debugLog.innerText = msg;
-            }}
             
-            // Initialization Log
-            log(`Init v1.1.12\\nWin: ${{window.innerWidth}}x${{window.innerHeight}}`);
+            // DIAGNOSTIC START
+            const isIframe = (window.self !== window.top);
+            const ua = navigator.userAgent;
+            const mobileCheck = /Mobi|Android/i.test(ua);
+            
+            log(`JS RUNNING (v1.1.14)\\nIframe: ${{isIframe}}\\nMob: ${{mobileCheck}}\\nWin: ${{window.innerWidth}}x${{window.innerHeight}}`);
 
             // UNIVERSAL POINTER LISTENER
             // Captures Touch AND Mouse. Logs EVERYTHING.
             
             const handleGlobalPointer = (e) => {{
+                // log(`Evt: ${{e.type}}`); // Uncomment for meaningful spam if needed
+                
                 const x = e.clientX;
                 const y = e.clientY;
-                const type = e.type;
                 
-                // ALWAYS LOG
-                log(`Evt: ${{type}}\\nX:${{x.toFixed(0)}} Y:${{y.toFixed(0)}}`);
+                // Only log if interaction is significant or explicitly requested (too much spam hangs visual)
+                // log(`Evt: ${{e.type}}\\nX:${{x.toFixed(0)}} Y:${{y.toFixed(0)}}`);
                 
-                // Only process interaction if near right edge (e.g., last 60px)
+                // Interaction Zone: Right 80px (Wider for safety)
                 const winWidth = window.innerWidth;
-                const isRightEdge = x > (winWidth - 60);
+                const isRightEdge = x > (winWidth - 80);
                 
-                if (!isRightEdge) return; 
-
-                // Prevent Default (Scroll) only if in zone
-                if(e.cancelable && e.type !== 'pointerup') {{
-                    e.preventDefault();
-                }}
-                
-                // Scrub Logic
-                const target = document.elementFromPoint(x, y);
-                let char = null;
-                
-                if (target) {{
-                     char = target.getAttribute('data-char');
-                     if (char) log(`HIT: ${{char}}`);
-                }}
-                
-                // Visuals
-                if (indexContainer) {{
-                    const allChars = indexContainer.querySelectorAll('.index-char');
-                    allChars.forEach(c => c.classList.remove('active'));
+                if (isRightEdge) {{
+                    log(`ZONE ACT: ${{e.type}}\\n(${{x.toFixed(0)}},${{y.toFixed(0)}})`);
                     
-                    if (char && target && target.classList.contains('index-char')) {{
-                        target.classList.add('active');
+                    if(e.cancelable && e.type !== 'pointerup') {{
+                        e.preventDefault();
                     }}
-                }}
+                    
+                    const target = document.elementFromPoint(x, y);
+                    let char = null;
+                    if (target) {{
+                        char = target.getAttribute('data-char');
+                        if (char) {{
+                             log(`HIT: ${{char}}`);
+                        }} else {{
+                             // If we hit the container or empty space, maybe scrubbing logic?
+                             // Fallback to simple height calc if elementFromPoint misses
+                             // log(`Tgt: ${{target.tagName}}`);
+                        }}
+                    }}
+                    
+                    // Visuals
+                    if (indexContainer) {{
+                        const allChars = indexContainer.querySelectorAll('.index-char');
+                        allChars.forEach(c => c.classList.remove('active'));
+                        
+                        if (char && target && target.classList.contains('index-char')) {{
+                            target.classList.add('active');
+                        }}
+                    }}
 
-                if (char && char !== lastTargetChar) {{
-                    lastTargetChar = char;
-                    const anchor = document.getElementById('anchor-' + char);
-                    if (anchor) {{
-                        anchor.scrollIntoView({{behavior: "auto", block: "start"}});
-                        if (navigator.vibrate) navigator.vibrate(5);
+                    if (char && char !== lastTargetChar) {{
+                        lastTargetChar = char;
+                        const anchor = document.getElementById('anchor-' + char);
+                        if (anchor) {{
+                            anchor.scrollIntoView({{behavior: "auto", block: "start"}});
+                            if (navigator.vibrate) navigator.vibrate(5);
+                        }}
                     }}
                 }}
             }};
 
-            // Pointer Events are better than Touch events
-            document.addEventListener('pointerdown', handleGlobalPointer, {{passive: false, capture: true}});
-            document.addEventListener('pointermove', handleGlobalPointer, {{passive: false, capture: true}});
-            document.addEventListener('pointerup', (e) => {{
+            // Attach to Window and Document to be safe
+            window.addEventListener('pointerdown', handleGlobalPointer, {{passive: false, capture: true}});
+            window.addEventListener('pointermove', handleGlobalPointer, {{passive: false, capture: true}});
+            window.addEventListener('pointerup', (e) => {{
                  lastTargetChar = null;
                  if (indexContainer) {{
                     const allChars = indexContainer.querySelectorAll('.index-char');
                     allChars.forEach(c => c.classList.remove('active'));
                  }}
-                 // log("Lift");
             }}, {{passive: false}});
             
         }})();
