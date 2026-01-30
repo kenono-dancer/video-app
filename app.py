@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.10"
+APP_VERSION = "v1.1.11"
 
 
 try:
@@ -972,68 +972,69 @@ if view_mode == "By Dancer":
                 if (debugLog) debugLog.innerText = msg;
             }}
 
-            if (indexContainer) {{
-                // Logic: elementFromPoint
-                const handleTouch = (e) => {{
-                    if(e.cancelable) e.preventDefault();
-                    
-                    const touch = e.touches[0];
-                    const x = touch.clientX;
-                    const y = touch.clientY;
-                    
-                    // Element logic
-                    // We might need to hide the finger/feedback to see what's under?
-                    // Usually elementFromPoint works fine if the finger doesn't block it (it might return the container)
-                    
-                    const target = document.elementFromPoint(x, y);
-                    let char = null;
-                    
-                    if (target) {{
-                        char = target.getAttribute('data-char');
-                        // If we hit the container, maybe try to calculate? 
-                        // But let's see what the log says first.
-                        log(`X:${{x.toFixed(0)}} Y:${{y.toFixed(0)}} \\nTgt: ${{target.tagName}} .${{target.className}} \\nChar: ${{char || 'None'}}`);
-                    }} else {{
-                        log(`X:${{x.toFixed(0)}} Y:${{y.toFixed(0)}} \\nTgt: NULL`);
-                    }}
-
-                    // Visual Highlighting
+            // GLOBAL LISTENER STRATEGY
+            // Attach to document to catch everything, filter by coordinates
+            
+            const handleGlobalTouch = (e) => {{
+                const touch = e.touches[0];
+                const x = touch.clientX;
+                const y = touch.clientY;
+                const winWidth = window.innerWidth;
+                
+                // Interaction Zone: Right 60px
+                const isRightEdge = x > (winWidth - 60);
+                
+                // Debug logging for ALL touches to verify listener works
+                // log(`Global Touch: ${{x.toFixed(0)}}, ${{y.toFixed(0)}} (Right:${{isRightEdge}})`);
+                
+                if (!isRightEdge) return; // Allow normal scrolling elsewhere
+                
+                // If in zone, prevent default scroll
+                if(e.cancelable) e.preventDefault();
+                
+                // Logic: elementFromPoint or Coordinate Scrub
+                // Let's try elementFromPoint first as it's cleaner if elements exist
+                const target = document.elementFromPoint(x, y);
+                let char = null;
+                
+                if (target) {{
+                     char = target.getAttribute('data-char');
+                     log(`Hit: ${{char}} (X:${{x.toFixed(0)}})`);
+                }}
+                
+                // Visual Feedback
+                if (indexContainer) {{
                     const allChars = indexContainer.querySelectorAll('.index-char');
                     allChars.forEach(c => c.classList.remove('active'));
                     
-                    if (char) {{
-                        // Find the element for this char just to be safe/consistent
-                        // (target might be it, or a child)
-                        if (target.classList.contains('index-char')) {{
-                             target.classList.add('active');
-                        }}
+                    if (char && target.classList.contains('index-char')) {{
+                        target.classList.add('active');
                     }}
+                }}
 
-                    if (char && char !== lastTargetChar) {{
-                        lastTargetChar = char;
-                        const anchor = document.getElementById('anchor-' + char);
-                        if (anchor) {{
-                            anchor.scrollIntoView({{behavior: "auto", block: "start"}});
-                            if (navigator.vibrate) navigator.vibrate(5);
-                        }}
+                if (char && char !== lastTargetChar) {{
+                    lastTargetChar = char;
+                    const anchor = document.getElementById('anchor-' + char);
+                    if (anchor) {{
+                        anchor.scrollIntoView({{behavior: "auto", block: "start"}});
+                        if (navigator.vibrate) navigator.vibrate(5);
                     }}
-                }};
+                }}
+            }};
 
-                indexContainer.addEventListener('touchstart', (e) => {{
-                    handleTouch(e);
-                }}, {{passive: false}});
-
-                indexContainer.addEventListener('touchmove', (e) => {{
-                    handleTouch(e);
-                }}, {{passive: false}});
-
-                indexContainer.addEventListener('touchend', () => {{
-                    lastTargetChar = null;
+            // Attach to document with capture phase to ensure we get it first
+            document.addEventListener('touchstart', handleGlobalTouch, {{passive: false, capture: true}});
+            document.addEventListener('touchmove', handleGlobalTouch, {{passive: false, capture: true}});
+            
+            // Clean up on end
+            document.addEventListener('touchend', () => {{
+                lastTargetChar = null;
+                if (indexContainer) {{
                     const allChars = indexContainer.querySelectorAll('.index-char');
                     allChars.forEach(c => c.classList.remove('active'));
-                    // log("Touch End");
-                }});
-            }}
+                }}
+            }});
+            
         }})();
     </script>
     """
