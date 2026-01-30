@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.12"
+APP_VERSION = "v1.1.13"
 
 
 try:
@@ -1050,7 +1050,6 @@ if view_mode == "By Dancer":
             
         }})();
     </script>
-    """
     """
     st.markdown(index_bar_html, unsafe_allow_html=True)
 
