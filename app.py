@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.6"
+APP_VERSION = "v1.1.7"
 
 
 try:
@@ -912,31 +912,23 @@ if view_mode == "By Dancer":
         }}
         .index-char {{
             display: block;
-            padding: 3px 0;
-            font-size: 11px;
-            color: #ddd;
-            text-align: center;
-            text-decoration: none; /* Remove underline from A tags */
-            cursor: pointer;
-            font-weight: bold;
-            font-family: sans-serif;
             right: 0px; 
             top: 55%;
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
             z-index: 999999;
-            background-color: rgba(0, 0, 0, 0.3); /* More transparent */
-            backdrop-filter: blur(4px); /* Glass effect */
+            background-color: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
             border-radius: 12px 0 0 12px;
             padding: 10px 0;
             box-shadow: -2px 4px 10px rgba(0,0,0,0.2);
             max-height: 80vh;
             overflow-y: auto;
-            width: 44px; /* Slightly narrower but still touchable */
+            width: 44px;
             -ms-overflow-style: none;
             scrollbar-width: none;
-            touch-action: none; 
+            touch-action: none !important; /* Force no scroll */
         }}
         .alphabet-index::-webkit-scrollbar {{
             display: none;
@@ -958,9 +950,15 @@ if view_mode == "By Dancer":
         .index-char:hover, .index-char:active {{
             background-color: rgba(255, 255, 255, 0.1);
         }}
+        .index-char.active {{
+            background-color: rgba(255, 140, 0, 0.6) !important; /* Orange Highlight */
+            color: white !important;
+            transform: scale(1.3);
+            border-radius: 50%;
+        }}
     </style>
 
-    <div class="alphabet-index" id="alphabetIndex">
+    <div class="alphabet-index" id="alphabetIndex" style="touch-action: none;">
         {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char}</a>' for char in sorted_initials])}
     </div>
     
