@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.14"
+APP_VERSION = "v1.1.15"
 
 
 try:
@@ -938,25 +938,27 @@ if view_mode == "By Dancer":
             transform: scale(1.3);
             border-radius: 50%;
         }}
-        /* DEBUG OVERLAY */
+        /* DEBUG OVERLAY - LOUD MODE */
         #debug-log {{
             position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.8);
-            color: lime;
-            font-family: monospace;
-            z-index: 1000000;
-            padding: 5px;
-            border-radius: 5px;
-            font-size: 12px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: auto;
+            background: rgba(255, 0, 0, 0.9);
+            color: white;
+            font-weight: bold;
+            font-family: sans-serif;
+            z-index: 2147483647; /* Max Z-Index */
+            padding: 10px;
+            font-size: 16px;
             pointer-events: none;
-            max-width: 200px;
-            white-space: pre-wrap;
+            border-bottom: 3px solid yellow;
+            text-align: center;
         }}
     </style>
 
-    <div id="debug-log">Debug Log Initialized</div>
+    <div id="debug-log">WAITING FOR JS (v1.1.15) - CHECK TOP OF SCREEN</div>
 
     <div class="alphabet-index" id="alphabetIndex" style="touch-action: none;">
         {''.join([f'<a class="index-char" href="#anchor-{char}" data-char="{char}">{char}</a>' for char in sorted_initials])}
