@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import json
 
 # APP VERSION
-APP_VERSION = "v2.1.1"
+APP_VERSION = "v2.2.0"
 
 
 try:
@@ -302,6 +302,34 @@ df['platform'] = df['platform'].fillna("YouTube").astype(str)
 # ==========================================
 # 5. ALPHABET INDEX (Global Helper) v2.1.1
 # ==========================================
+
+# v2.2.0 HELPER: Get Initial from Text
+def get_initial_from_text(text):
+    """Extracts the first letter (initial) from text, converting Kanji to Romaji if needed."""
+    if not text: return "?"
+    
+    # 1. Try PyKakasi (Japanese)
+    try:
+        kks = kakasi() 
+        # Note: Initializing kakasi every time might be slow. 
+        # Ideally move global, but Streamlit caching handles execution flow well enough.
+        result = kks.convert(text)
+        if result:
+            romaji = result[0]['hepburn']
+            if romaji:
+                initial = romaji[0].upper()
+                if initial.isalpha():
+                    return initial
+                else:
+                    return "#" # Symbol
+    except:
+            pass
+    
+    # Fallback
+    first_char = text[0].upper()
+    if first_char.isalpha():
+        return first_char
+    return "#"
 
 # Define reusable function for Slide Index
 def render_slide_index(items):
@@ -988,59 +1016,30 @@ if view_mode == "By Dancer":
 
     # Add temporary columns for sorting
     df_dancer_sorted = filtered_df.copy()
-    df_dancer_sorted['yomi_key'] = df_dancer_sorted['ダンサー'].apply(get_yomi_normalized)
     
-    # Sort purely by (YomiKey) - Ignoring Discipline Rank as per "Dancer Name" criterion
-    df_dancer_sorted = df_dancer_sorted.sort_values(by=['yomi_key'])
     
-    # Store original index for Edit/Delete actions, then reset index for display order
-    df_dancer_sorted['_original_index'] = df_dancer_sorted.index
-    df_dancer_sorted = df_dancer_sorted.reset_index(drop=True)
-    
-    # Render Groups by Dancer
-    # We use sort=False to preserve the custom sort order we just applied
-    # Remove standard groupby. We need custom grouping by initial.
-    
-    # Apply sorting (Already done via yomi_key, but we need the raw list for iteration if not using groupby)
-    # Actually, let's use the sorted dataframe.
-    dancers = df_dancer_sorted['ダンサー'].unique().tolist()
-    
-    # --------------------------------------------------------------------------------
-    # Alphabet Index Logic & UI
-    # --------------------------------------------------------------------------------
-    
-    # 1. Prepare Data: Group dancers by initial
+    # Group by Initial (By Dancer)
     dancer_groups = {}
-    sorted_initials = []
-    
-    # kks is initialized globally
-    conv = kks.getConverter()
-
-    for dancer in dancers:
-        # Get first character
-        if not isinstance(dancer, str) or not dancer:
-            initial = "?"
-            # Skip invalid entries or handle them
+    for idx, row in filtered_df.iterrows():
+        # Store original index for Edit/Delete actions
+        # We need to preserve the index from the main df
+        if '_original_index' in row:
+             row_data = row
         else:
-            # Convert to romaji to handle Kanji/Kana names correctly
-            try:
-                romaji = conv.do(dancer)
-            except Exception:
-                romaji = None
-        if not romaji:
-            initial = "?"
-        else:
-            initial = romaji[0].upper()
-            
-        # Group non-alpha into '#'
-        if not initial.isalpha():
-            initial = "#"
+             # If index not in column (normal case), row.name is the index
+             row_data = row.copy()
+             row_data['_original_index'] = idx
+             
+        dancer = row_data['ダンサー']
+        
+        initial = get_initial_from_text(dancer)
             
         if initial not in dancer_groups:
             dancer_groups[initial] = []
-        dancer_groups[initial].append(dancer)
-        
+        dancer_groups[initial].append(row_data) # Append the Series
+
     sorted_initials = sorted(dancer_groups.keys())
+    
     # ==========================================
     # 5. ALPHABET INDEX
     # ==========================================
@@ -1049,44 +1048,13 @@ if view_mode == "By Dancer":
 
     # 3. Render content with Anchor Headers
     for initial in sorted_initials:
-        # Invisible anchor for scrolling (offset for sticky header/spacing)
-        st.markdown(f"<div id='anchor-{initial}' style='position: relative; top: -80px; visibility: hidden;'></div>", unsafe_allow_html=True)
+        st.header(initial, anchor=f"anchor-{initial}")
+        st.markdown("---")
         
-        # Visible Header
-        st.markdown(f"### {initial}")
-        
-        current_group = dancer_groups[initial]
-        
-        # Display Dancers in Expanders
-        for dancer in current_group:
-            with st.expander(f"{dancer}", expanded=False):
-                # Filter original DF by dancer to get videos
-                sub_df = filtered_df[filtered_df['ダンサー'] == dancer]
-                
-                if sub_df.empty:
-                    st.write("No videos found.")
-                    continue
+        # Convert list of Series back to DataFrame for rendering
+        group_df = pd.DataFrame(dancer_groups[initial])
+        render_video_grid(group_df)
 
-                for i, row in sub_df.iterrows():
-                    col1, col2 = st.columns([1, 2])
-                    with col1:
-                        # Thumbnail from Image URL column
-                        img_url = row.get('画像URL', '')
-                        if img_url:
-                            st.image(str(img_url), use_container_width=True)
-                    with col2:
-                        # Display Discipline as Title
-                        st.write(f"**{row['種目']}**")
-                        
-                        # Display Memo if exists
-                        memo = row.get('メモ', '')
-                        if pd.notna(memo) and memo:
-                             st.caption(f"{memo}")
-
-                        # Video Link from Video URL column
-                        video_url = row.get('動画URL', '')
-                        if video_url:
-                            st.markdown(f"[YouTubeで見る]({video_url})", unsafe_allow_html=True)
 
 elif view_mode == "By Dance":
     # Sort by rank(Discipline), then by Dancer
@@ -1120,17 +1088,79 @@ elif view_mode == "By Dance":
 
 
 elif view_mode == "Latest":
-    # Reverse order: Show new items (bottom of sheet) first
-    # filtered_df matches sheet order by default (minus filtering).
-    # Just reverse it.
-    df_latest = filtered_df.iloc[::-1]
+    # v2.2.0: "Latest" is now "All Videos (A-Z)" or similar, 
+    # but the label says "Latest". User requested Title-based Alphabet Index.
+    # So we sort by Dancer (Title) and render exactly like "By Dancer".
     
-    # Store original index if not present (though it likely is from filtering copy if we did it right, 
-    # but let's ensure we can edit safely)
-    if '_original_index' not in df_latest.columns:
-        df_latest['_original_index'] = df_latest.index
-        
-    render_video_grid(df_latest)
+    # Logic is essentially identical to "By Dancer" now,
+    # but maybe without the grouping by Initial visual blocks?
+    # No, to support Slide Scroll (Index), we usually need Anchors.
+    # Anchors usually correspond to Headers.
+    
+    # So I will replicate the "By Dancer" logic exactly here for sorting/indexing.
+    # The only difference between "Latest" and "By Dancer" in the user's mind
+    # might be the default sort?
+    # But if they want an "Alphabet Menu", it implies alphabetical sort.
+    # If I sort Alphabetically, "Latest" becomes a misnomer, but "By Dancer" exists.
+    # Wait, "By Dancer" likely groups by "Dancer Name" already?
+    
+    # Let's check "By Dancer" original logic.
+    # Previous "By Dancer" logic:
+    # 1. Group by Initial (A, B, C...)
+    # 2. Inside group, list cards.
+    
+    # If "Latest" previously was just a raw list sorted by time...
+    # The user request: "Latest page also have title based alphabet menu".
+    # This implies they want to FIND videos by title on the Latest page.
+    # If the list is sorted by Time, an Alphabet Index is useless (random jumps).
+    # So the list MUST be sorted by Title.
+    
+    # If "Latest" becomes "Sorted by Title", it becomes identical to "By Dancer".
+    # Unless "By Dancer" groups by specific *Dancers* (like folders)?
+    # No, current "By Dancer" groups by Initial.
+    
+    # So "Latest" and "By Dancer" are becoming identical?
+    # Maybe the user wants "Latest" to be the *default* landing page
+    # and they just want that functionality everywhere.
+    
+    # I will implement the Alphabet Index + Sort by Title on Latest.
+    # This effectively makes it identical to "By Dancer".
+    # I will execute this as requested.
+    
+    # 1. Sort by Dancer (Title)
+    # Note: filtered_df is already filtered by search.
+    
+    # Reuse the same logic block or copy-paste (safest to avoid major refactor errors right now)
+    
+    
+    # Group by Initial
+    groups = {}
+    for idx, row in filtered_df.iterrows():
+         # Manual index preservation
+         if '_original_index' in row:
+             row_data = row
+         else:
+             row_data = row.copy()
+             row_data['_original_index'] = idx
+             
+         title = row_data['ダンサー']
+         initial = get_initial_from_text(title)
+         
+         if initial not in groups:
+             groups[initial] = []
+         groups[initial].append(row_data)
+         
+    sorted_keys = sorted(groups.keys())
+    
+    # Render Index
+    render_slide_index(sorted_keys)
+    
+    # Render List
+    for key in sorted_keys:
+        st.header(key, anchor=f"anchor-{key}")
+        group_df = pd.DataFrame(groups[key])
+        render_video_grid(group_df)
+        st.markdown("---")
 
 # Spacer to ensure content isn't hidden behind fixed footer
 st.write("")
