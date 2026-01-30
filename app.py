@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import json
 
 # APP VERSION
-APP_VERSION = "v2.2.1"
+APP_VERSION = "v2.2.2"
 
 
 try:
@@ -1096,79 +1096,21 @@ elif view_mode == "By Dance":
 
 
 elif view_mode == "Latest":
-    # v2.2.0: "Latest" is now "All Videos (A-Z)" or similar, 
-    # but the label says "Latest". User requested Title-based Alphabet Index.
-    # So we sort by Dancer (Title) and render exactly like "By Dancer".
     
-    # Logic is essentially identical to "By Dancer" now,
-    # but maybe without the grouping by Initial visual blocks?
-    # No, to support Slide Scroll (Index), we usually need Anchors.
-    # Anchors usually correspond to Headers.
+    # v2.2.2: RESTORED "Newest First" Order
+    # User feedback: "Latest page should be in registration order, new ones at top."
+    # The Alphabet Index (Slide Scroll) requires Alphabetical sorting to work meaningfully.
+    # Since we must prioritize "Newest First", we cannot support the A-Z Index on this specific view 
+    # (otherwise the index would jump randomly in a time-sorted list).
     
-    # So I will replicate the "By Dancer" logic exactly here for sorting/indexing.
-    # The only difference between "Latest" and "By Dancer" in the user's mind
-    # might be the default sort?
-    # But if they want an "Alphabet Menu", it implies alphabetical sort.
-    # If I sort Alphabetically, "Latest" becomes a misnomer, but "By Dancer" exists.
-    # Wait, "By Dancer" likely groups by "Dancer Name" already?
+    # Reverse order: Show new items (bottom of sheet) first
+    df_latest = filtered_df.iloc[::-1]
     
-    # Let's check "By Dancer" original logic.
-    # Previous "By Dancer" logic:
-    # 1. Group by Initial (A, B, C...)
-    # 2. Inside group, list cards.
-    
-    # If "Latest" previously was just a raw list sorted by time...
-    # The user request: "Latest page also have title based alphabet menu".
-    # This implies they want to FIND videos by title on the Latest page.
-    # If the list is sorted by Time, an Alphabet Index is useless (random jumps).
-    # So the list MUST be sorted by Title.
-    
-    # If "Latest" becomes "Sorted by Title", it becomes identical to "By Dancer".
-    # Unless "By Dancer" groups by specific *Dancers* (like folders)?
-    # No, current "By Dancer" groups by Initial.
-    
-    # So "Latest" and "By Dancer" are becoming identical?
-    # Maybe the user wants "Latest" to be the *default* landing page
-    # and they just want that functionality everywhere.
-    
-    # I will implement the Alphabet Index + Sort by Title on Latest.
-    # This effectively makes it identical to "By Dancer".
-    # I will execute this as requested.
-    
-    # 1. Sort by Dancer (Title)
-    # Note: filtered_df is already filtered by search.
-    
-    # Reuse the same logic block or copy-paste (safest to avoid major refactor errors right now)
-    
-    
-    # Group by Initial
-    groups = {}
-    for idx, row in filtered_df.iterrows():
-         # Manual index preservation
-         if '_original_index' in row:
-             row_data = row
-         else:
-             row_data = row.copy()
-             row_data['_original_index'] = idx
-             
-         title = row_data['ダンサー']
-         initial = get_initial_from_text(title)
-         
-         if initial not in groups:
-             groups[initial] = []
-         groups[initial].append(row_data)
-         
-    sorted_keys = sorted(groups.keys())
-    
-    # Render Index
-    render_slide_index(sorted_keys)
-    
-    # Render List
-    for key in sorted_keys:
-        st.header(key, anchor=f"anchor-{key}")
-        group_df = pd.DataFrame(groups[key])
-        render_video_grid(group_df)
-        st.markdown("---")
+    # Store original index if not present
+    if '_original_index' not in df_latest.columns:
+        df_latest['_original_index'] = df_latest.index
+        
+    render_video_grid(df_latest)
 
 # Spacer to ensure content isn't hidden behind fixed footer
 st.write("")
