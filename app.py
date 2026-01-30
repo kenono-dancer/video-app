@@ -2,7 +2,7 @@ import streamlit as st
 import traceback
 
 # APP VERSION
-APP_VERSION = "v1.1.7"
+APP_VERSION = "v1.1.8"
 
 
 try:
@@ -12,6 +12,7 @@ try:
     import unicodedata
     import ssl
     import pykakasi
+    import json # Added for passing data to JS
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaIoBaseUpload
@@ -912,30 +913,7 @@ if view_mode == "By Dancer":
         }}
         .index-char {{
             display: block;
-            right: 0px; 
-            top: 55%;
-            transform: translateY(-50%);
-            display: flex;
-            flex-direction: column;
-            z-index: 999999;
-            background-color: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(4px);
-            border-radius: 12px 0 0 12px;
-            padding: 10px 0;
-            box-shadow: -2px 4px 10px rgba(0,0,0,0.2);
-            max-height: 80vh;
-            overflow-y: auto;
-            width: 44px;
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-            touch-action: none !important; /* Force no scroll */
-        }}
-        .alphabet-index::-webkit-scrollbar {{
-            display: none;
-        }}
-        .index-char {{
-            display: block;
-            padding: 4px 0;
+            flex: 1; /* Distribute height evenly */
             font-size: 11px;
             color: #ddd;
             text-align: center;
@@ -946,12 +924,15 @@ if view_mode == "By Dancer":
             user-select: none;
             -webkit-user-select: none;
             width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }}
         .index-char:hover, .index-char:active {{
             background-color: rgba(255, 255, 255, 0.1);
         }}
         .index-char.active {{
-            background-color: rgba(255, 140, 0, 0.6) !important; /* Orange Highlight */
+            background-color: rgba(255, 140, 0, 0.6) !important;
             color: white !important;
             transform: scale(1.3);
             border-radius: 50%;
@@ -965,40 +946,69 @@ if view_mode == "By Dancer":
     <script>
         (function() {{
             const indexContainer = document.getElementById('alphabetIndex');
+            const chars = {chars_json};
             let lastTargetChar = null;
 
             if (indexContainer) {{
-                // Force prevent scrolling on the container itself
-                indexContainer.addEventListener('touchmove', (e) => {{
-                     e.preventDefault();
-                }}, {{passive: false}});
-
-                // Check touch position
-                indexContainer.addEventListener('touchmove', (e) => {{
-                    // e.preventDefault() is already handled above
-                    const touch = e.touches[0];
-                    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                // Robust Scrubbing Logic
+                const handleTouch = (e) => {{
+                    if(e.cancelable) e.preventDefault();
                     
-                    if (target && target.classList.contains('index-char')) {{
-                        const char = target.getAttribute('data-char');
+                    const touch = e.touches[0];
+                    const rect = indexContainer.getBoundingClientRect();
+                    
+                    // Check bounds
+                    if (touch.clientX < rect.left - 50 || touch.clientX > rect.right + 50) return;
+                    
+                    // Calculate index based on Y position
+                    const relativeY = touch.clientY - rect.top;
+                    const totalHeight = rect.height;
+                    const charCount = chars.length;
+                    
+                    // Height per char (virtual)
+                    // Ensure we clamp index to valid range
+                    let index = Math.floor((relativeY / totalHeight) * charCount);
+                    index = Math.max(0, Math.min(index, charCount - 1));
+                    
+                    const char = chars[index];
+                    
+                    // Visual Highlighting
+                    const allChars = indexContainer.querySelectorAll('.index-char');
+                    allChars.forEach(c => c.classList.remove('active'));
+                    
+                    // Highlight the calculated index's element
+                    if (allChars[index]) {{
+                        allChars[index].classList.add('active');
+                    }}
+
+                    if (char && char !== lastTargetChar) {{
+                        lastTargetChar = char;
                         
-                        if (char && char !== lastTargetChar) {{
-                            lastTargetChar = char;
-                            
-                            // Direct DOM Scroll - Most robust and fast
-                            const anchor = document.getElementById('anchor-' + char);
-                            if (anchor) {{
-                                anchor.scrollIntoView({{behavior: "auto", block: "start"}});
-                                
-                                // Optional haptic
-                                if (navigator.vibrate) navigator.vibrate(5);
-                            }}
+                        const anchor = document.getElementById('anchor-' + char);
+                        if (anchor) {{
+                            anchor.scrollIntoView({{behavior: "auto", block: "start"}});
+                            if (navigator.vibrate) navigator.vibrate(5);
                         }}
                     }}
+                }};
+
+                indexContainer.addEventListener('touchstart', (e) => {{
+                    handleTouch(e);
+                }}, {{passive: false}});
+
+                indexContainer.addEventListener('touchmove', (e) => {{
+                    handleTouch(e);
                 }}, {{passive: false}});
 
                 indexContainer.addEventListener('touchend', () => {{
                     lastTargetChar = null;
+                    const allChars = indexContainer.querySelectorAll('.index-char');
+                    allChars.forEach(c => c.classList.remove('active'));
+                }});
+                
+                // Keep Click for mouse users as fallback
+                indexContainer.addEventListener('click', (e) => {{
+                    // Native anchor behavior is fine
                 }});
             }}
         }})();
