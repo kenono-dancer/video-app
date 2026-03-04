@@ -1,0 +1,33 @@
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mFailed to write to log file Error: EPERM: operation not permitted, open '/Users/macbookpro2019/Library/Preferences/.wrangler/logs/wrangler-2026-02-28_14-53-51_161.log'[0m
+
+      at async open (node:internal/fs/promises:637:25)
+      at async writeFile (node:internal/fs/promises:1239:14)
+      at async /Users/macbookpro2019/Antigravity/Video-App/next-app/node_modules/wrangler/wrangler-dist/cli.js:42363:7
+      at async Mutex.runWith (/Users/macbookpro2019/Antigravity/Video-App/next-app/node_modules/wrangler/node_modules/miniflare/dist/src/index.js:52333:48)
+      at async appendToDebugLogFile (/Users/macbookpro2019/Antigravity/Video-App/next-app/node_modules/wrangler/wrangler-dist/cli.js:42360:3) {
+    errno: -1,
+    code: 'EPERM',
+    syscall: 'open',
+    path: '/Users/macbookpro2019/Library/Preferences/.wrangler/logs/wrangler-2026-02-28_14-53-51_161.log'
+  }
+
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mWould have written: [0m
+
+  --- 2026-02-28T14:53:51.271Z debug
+  🪵  Writing logs to "/Users/macbookpro2019/Library/Preferences/.wrangler/logs/wrangler-2026-02-28_14-53-51_161.log"
+  ---
+  
+
+
+
+ ⛅️ wrangler 4.69.0
+───────────────────
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mFailed to fetch auth token: 400 Bad Request[0m
+
+
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mIn a non-interactive environment, it's necessary to set a CLOUDFLARE_API_TOKEN environment variable for wrangler to work. Please go to https://developers.cloudflare.com/fundamentals/api/get-started/create-token/ for instructions on how to create an api token, and assign its value to CLOUDFLARE_API_TOKEN.[0m
+
+
+🪵  Logs were written to "/Users/macbookpro2019/Library/Preferences/.wrangler/logs/wrangler-2026-02-28_14-53-51_161.log"
