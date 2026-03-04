@@ -7,30 +7,17 @@ const MY_EMAIL = "narutakuyb+video@gmail.com";
 // ★Google Driveの保存先フォルダID
 const FOLDER_ID = "13fNsuwfvL3TKTawp8XlXM_fuPu63F1-d";
 
-// ★StreamlitアプリのURL (Keep-Alive用)
-// ※正しいURLを設定してください
-const APP_URL = "https://share.streamlit.io/kenono-dancer/video-app/main/app.py";
-// または "https://video-app-zwyxhpvhfxxpvhbnn4ukij.streamlit.app" など
 
 // ==========================================
 // トリガー設定の手順 (重要！)
-// ==========================================
-// エラー "RESOURCE_EXHAUSTED" を防ぐため、以下の2つのトリガーを個別に設定してください。
+// この関数をトリガー設定してください。
 //
-// 1. 関数: keepAlive
-//    - イベントのソース: 時間主導型 (Time-driven)
-//    - タイプ: 分ベースのタイマー (Minutes timer)
-//    - 間隔: 10分おき (Every 10 minutes)
-//    → 目的: アプリがスリープしないように叩くだけ (軽量)
-//
-// 2. 関数: mainManager
+// 関数: mainManager
 //    - イベントのソース: 時間主導型 (Time-driven)
 //    - タイプ: 分ベースのタイマー (Minutes timer)
 //    - 間隔: 15分おき (Every 15 minutes)
 //    → 目的: メールの確認とデータ更新
 //    ※もしエラー頻発するようなら、30分〜1時間に延ばしてください。
-//
-// ※以前のトリガー設定は削除してから、上記通りに再設定してください。
 // ==========================================
 
 // ★メール処理＆データ更新のメイン関数 (重い処理)
@@ -43,16 +30,6 @@ function mainManager() {
         console.error("mainManager Error: " + e.message);
     }
     console.log("--- 処理終了 ---");
-}
-
-// ★スリープ防止専用関数 (軽い処理)
-function keepAlive() {
-    try {
-        const response = UrlFetchApp.fetch(APP_URL, { muteHttpExceptions: true });
-        console.log(`Keep-Alive access status: ${response.getResponseCode()}`);
-    } catch (e) {
-        console.log(`Keep-Alive error: ${e.message}`);
-    }
 }
 
 // ------------------------------------------
@@ -233,6 +210,37 @@ function fetchWebInfo(url) {
                 title = "YouTube動画";
             }
         } catch (e) { }
+    } else if (siteName === "Instagram") {
+        try {
+            // ddinstagram.com をプロキシとして使い、OGPメタデータを取得
+            const ddUrl = url.replace("www.instagram.com", "ddinstagram.com")
+                .replace("instagram.com", "ddinstagram.com");
+
+            const options = {
+                muteHttpExceptions: true,
+                followRedirects: true,
+                headers: { "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1)" }
+            };
+
+            const response = UrlFetchApp.fetch(ddUrl, options);
+            if (response.getResponseCode() === 200) {
+                const html = response.getContentText("UTF-8");
+
+                const ogTitle = html.match(/property="og:title" content="([^"]+)"/i);
+                const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+
+                if (ogTitle && ogTitle[1]) title = ogTitle[1].trim();
+                else if (titleTag && titleTag[1]) title = titleTag[1].trim();
+
+                const ogImage = html.match(/property="og:image" content="([^"]+)"/i);
+                if (ogImage && ogImage[1]) {
+                    imageUrl = ogImage[1].replace(/&amp;/g, "&");
+                }
+            }
+        } catch (e) {
+            console.log("Instagram fetch error:" + e.message);
+        }
+
     } else if (siteName === "X (Twitter)") {
         // ★ここを変更: X (Twitter) の場合は fxtwitter.com 経由でメタデータを取る
         try {
