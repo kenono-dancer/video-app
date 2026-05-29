@@ -286,6 +286,15 @@ export default function Home() {
                             {isAdminMode ? <Unlock size={10} /> : <Lock size={10} />}
                             <span>{isAdminMode ? "Admin Active" : "Admin Login"}</span>
                         </button>
+                        <a
+                            href={`${GAS_API_URL}?action=admin`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-gray-500 hover:text-gray-400 hover:bg-white/10 transition-all text-[10px] uppercase tracking-widest cursor-pointer"
+                            title="GAS Data Control Panel"
+                        >
+                            <span>GAS Control Panel</span>
+                        </a>
                         <button
                             onClick={() => window.location.reload()}
                             className="hover:text-gray-400 transition-colors cursor-pointer text-[10px] uppercase tracking-widest opacity-60 hover:opacity-100"
