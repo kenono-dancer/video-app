@@ -20,7 +20,7 @@ interface Video {
     yomi?: string;
 }
 
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwLVKBdfFoOqeHYRDd1zXxOFNYTYIoDp-ThqzPedIO2KtOnYr2eMvWUDdwo2I_dk6umnw/exec";
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyYSqxrrowj_ks5uOl4qQbgJQrNI75eKmeOqUlxgH5yxRhvn9SqDim3_gdR9QCvHP3jzA/exec";
 
 export default function Home() {
     const [videos, setVideos] = useState<Video[]>([]);
