@@ -29,6 +29,8 @@ export default function Home() {
     const [viewMode, setViewMode] = useState<"latest" | "dancer" | "dance">("latest");
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
     const fetchVideos = useCallback(async () => {
         try {
@@ -182,6 +184,30 @@ export default function Home() {
         }
     };
 
+    const handleSync = async () => {
+        setIsSyncing(true);
+        setSyncStatus("Syncing with Google Spreadsheet...");
+        try {
+            const resp = await fetch(`${GAS_API_URL}?action=sync`);
+            if (!resp.ok) {
+                throw new Error(`HTTP error! status: ${resp.status}`);
+            }
+            const result = await resp.json();
+            if (result.success) {
+                setSyncStatus("Sync Completed successfully!");
+                await fetchVideos(); // Re-fetch to load new videos
+            } else {
+                throw new Error(result.error || "Unknown error during sync");
+            }
+        } catch (err: any) {
+            console.error("Sync failed:", err);
+            setSyncStatus(`Sync Failed: ${err.message || "Network error"}`);
+        } finally {
+            setIsSyncing(false);
+            setTimeout(() => setSyncStatus(null), 5000);
+        }
+    };
+
     const handleSaveVideo = (updatedVideo: Video) => {
         setVideos(prev => prev.map(v => v.id === updatedVideo.id ? updatedVideo : v));
     };
@@ -286,15 +312,20 @@ export default function Home() {
                             {isAdminMode ? <Unlock size={10} /> : <Lock size={10} />}
                             <span>{isAdminMode ? "Admin Active" : "Admin Login"}</span>
                         </button>
-                        <a
-                            href={`${GAS_API_URL}?action=admin`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-gray-500 hover:text-gray-400 hover:bg-white/10 transition-all text-[10px] uppercase tracking-widest cursor-pointer"
-                            title="GAS Data Control Panel"
-                        >
-                            <span>GAS Control Panel</span>
-                        </a>
+                        {isAdminMode && (
+                            <button
+                                onClick={handleSync}
+                                disabled={isSyncing}
+                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full transition-all text-[10px] uppercase tracking-widest cursor-pointer ${
+                                    isSyncing
+                                        ? "bg-gray-800 text-gray-500 border border-gray-700/50 cursor-not-allowed"
+                                        : "bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600/30"
+                                }`}
+                                title="Run GAS automation to import new emails and update metadata"
+                            >
+                                <span>{isSyncing ? "Syncing..." : "Sync Spreadsheet"}</span>
+                            </button>
+                        )}
                         <button
                             onClick={() => window.location.reload()}
                             className="hover:text-gray-400 transition-colors cursor-pointer text-[10px] uppercase tracking-widest opacity-60 hover:opacity-100"
@@ -303,6 +334,17 @@ export default function Home() {
                             v5.2 Next.js Edition
                         </button>
                     </div>
+                    {syncStatus && (
+                        <div className={`mt-3 text-[10px] font-semibold uppercase tracking-wider px-4 py-1.5 rounded-full ${
+                            syncStatus.includes("Failed") || syncStatus.includes("Error")
+                                ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                                : syncStatus.includes("Completed")
+                                    ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                                    : "bg-orange-500/10 text-orange-400 border border-orange-500/20 animate-pulse"
+                        }`}>
+                            {syncStatus}
+                        </div>
+                    )}
                 </div>
             </footer>
 
