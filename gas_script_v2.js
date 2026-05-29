@@ -66,7 +66,7 @@ function doGet(e) {
                     <body>
                         <div class="login-container">
                             <h2>管理画面 ログイン</h2>
-                            <form method="GET" action="${ScriptApp.getService().getUrl()}">
+                            <form method="GET" action="">
                                 <input type="hidden" name="action" value="admin">
                                 <input type="password" name="p" placeholder="パスワードを入力" required>
                                 <button type="submit">ログイン</button>
@@ -100,7 +100,7 @@ function doGet(e) {
                         <p style="color: #666; margin-bottom: 25px;">手動でメールの読み込み、およびスプレッドシートのメタデータ・サムネイル補完を実行します。</p>
                         <button id="runBtn" onclick="runUpdate()">更新処理を開始</button>
                         <p id="status"></p>
-                        <a href="${ScriptApp.getService().getUrl()}?action=admin" class="logout">ログアウト</a>
+                        <a href="?action=admin" class="logout">ログアウト</a>
                     </div>
                     <script>
                         function runUpdate() {
